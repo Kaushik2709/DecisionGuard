@@ -114,7 +114,11 @@ def validate(service: Service, request: TaskMutation) -> dict[str, Any]:
 
 
 def gate(
-    service: Service, task_ids: list[str], integration_task: str | None = None
+    service: Service,
+    task_ids: list[str],
+    integration_task: str | None = None,
+    *,
+    record_receipt: bool = True,
 ) -> dict[str, Any]:
     require(
         bool(task_ids) and len(task_ids) <= 100 and len(set(task_ids)) == len(task_ids),
@@ -311,5 +315,6 @@ def gate(
             "findings": findings,
             "integration_checked": integration_task is not None,
         }
-        put(db, "receipt", receipt["receipt_id"], receipt)
+        if record_receipt:
+            put(db, "receipt", receipt["receipt_id"], receipt)
         return envelope(receipt=receipt)

@@ -1,0 +1,25 @@
+{
+  "openapi": "3.1.1",
+  "info": {"title": "Disposable checkout", "version": "1.0.0"},
+  "paths": {
+    "/checkout": {
+      "post": {
+        "operationId": "checkout",
+        "requestBody": {"required": true, "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CheckoutRequest"}}}},
+        "responses": {"200": {"description": "Checkout fixture", "content": {"application/json": {"schema": {"$ref": "#/components/schemas/CheckoutResponse"}}}}}
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CheckoutRequest": {
+        "type": "object", "required": ["amount"], "additionalProperties": false,
+        "properties": {"amount": {"type": "number", "minimum": 0, "description": "INR major units"}}
+      },
+      "CheckoutResponse": {
+        "type": "object", "required": ["provider_amount", "currency"], "additionalProperties": false,
+        "properties": {"provider_amount": {"type": "integer", "minimum": 0}, "currency": {"const": "INR", "type": "string"}}
+      }
+    }
+  }
+}

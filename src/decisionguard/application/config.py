@@ -2,13 +2,14 @@ import json
 import os
 import sqlite3
 import uuid
+from contextlib import closing
 from pathlib import Path
 
 from decisionguard.domain.errors import require
 from decisionguard.domain.models import Config, RunnerConfig
 from decisionguard.git.context import common_dir, repository_root
 from decisionguard.storage.locking import exclusive_lock
-from decisionguard.storage.migrations import EPOCH_TRIGGERS
+from decisionguard.storage.migrations import EPOCH_TRIGGERS, V3
 from decisionguard.storage.sqlite import Store
 
 
@@ -34,7 +35,7 @@ def initialize(root: Path, state: Path | None, coordinator: str, runner: RunnerC
         root = repository_root(root)
     directory = state_dir(root, state)
     directory.mkdir(parents=True, exist_ok=True)
-    with exclusive_lock(directory / "admin.lock"):
+    with exclusive_lock(directory / "admin.lock"), exclusive_lock(directory / "activity.lock"):
         require(not (directory / "config.json").exists(), "INVALID", "Already initialized")
         journal = directory / "initialization.json"
         if journal.exists():
@@ -78,22 +79,22 @@ def atomic_json(path: Path, content: str) -> None:
 def migrate(directory: Path, *, sessions_stopped: bool) -> dict[str, str | int]:
     require(sessions_stopped, "INVALID", "Stop all CLI/MCP sessions and pass --sessions-stopped")
     config = load_config(directory)
-    with exclusive_lock(directory / "admin.lock"):
+    with exclusive_lock(directory / "admin.lock"), exclusive_lock(directory / "activity.lock"):
         require((directory / "state.db").is_file(), "NOT_FOUND", "Missing state database")
         db = sqlite3.connect(directory / "state.db", isolation_level=None, timeout=5)
         try:
             version = db.execute("PRAGMA user_version").fetchone()[0]
-            require(version in (1, 2), "INVALID", "Unsupported database schema")
+            require(version in (1, 2, 3), "INVALID", "Unsupported database schema")
             require(
                 db.execute("SELECT value FROM meta WHERE key='project'").fetchone()[0]
                 == config.project,
                 "FORBIDDEN",
                 "Foreign project database",
             )
-            if version == 2:
-                return {"database_version": 2, "status": "already_current"}
-            backup = directory / f"state-v1-backup-{uuid.uuid4().hex}.db"
-            with sqlite3.connect(backup) as target:
+            if version == 3:
+                return {"database_version": 3, "status": "already_current"}
+            backup = directory / f"state-v{version}-backup-{uuid.uuid4().hex}.db"
+            with closing(sqlite3.connect(backup)) as target:
                 db.backup(target)
             db.execute("BEGIN IMMEDIATE")
             try:
@@ -104,7 +105,7 @@ def migrate(directory: Path, *, sessions_stopped: bool) -> dict[str, str | int]:
                     "SELECT kind,id,body FROM entities WHERE kind IN ('task','run')"
                 ).fetchall():
                     body = json.loads(raw)
-                    if kind == "task":
+                    if kind == "task" and version == 1:
                         body.update(
                             evidence_generation=1,
                             run_sequence=0,
@@ -112,18 +113,22 @@ def migrate(directory: Path, *, sessions_stopped: bool) -> dict[str, str | int]:
                             scope_revision=0,
                             scope_approved=False,
                         )
+                    elif kind == "task":
+                        body["evidence_generation"] += 1
                     else:
                         body["valid"] = False
                     db.execute(
                         "UPDATE entities SET body=? WHERE kind=? AND id=?",
                         (json.dumps(body), kind, identity),
                     )
-                db.execute("PRAGMA user_version=2")
+                for statement in V3:
+                    db.execute(statement)
+                db.execute("PRAGMA user_version=3")
                 db.commit()
             except BaseException:
                 db.rollback()
                 raise
-            return {"database_version": 2, "backup": str(backup), "status": "migrated"}
+            return {"database_version": 3, "backup": str(backup), "status": "migrated"}
         finally:
             db.close()
 

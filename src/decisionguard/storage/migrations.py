@@ -27,3 +27,18 @@ EPOCH_TRIGGERS = [
     BEGIN UPDATE meta SET value=CAST(value AS INTEGER)+1 WHERE key='state_epoch'; END"""
     for operation, reference in [("INSERT", "NEW"), ("UPDATE", "NEW"), ("DELETE", "OLD")]
 ]
+
+# Dedicated advisory storage deliberately has no state-epoch triggers.
+V3 = [
+    "CREATE INDEX IF NOT EXISTS entity_active_actor ON entities(kind,COALESCE(json_extract(body,'$.archived'),0),json_extract(body,'$.actor'))",
+    "CREATE TABLE IF NOT EXISTS artifacts(digest TEXT PRIMARY KEY, body TEXT NOT NULL)",
+    "CREATE TABLE IF NOT EXISTS advisory_runs(id TEXT PRIMARY KEY, task TEXT NOT NULL, body TEXT NOT NULL)",
+    "CREATE INDEX IF NOT EXISTS event_task_cursor ON events(task,id)",
+    "CREATE INDEX IF NOT EXISTS event_notice ON events(task,json_extract(body,'$.notice_key'))",
+    "CREATE INDEX IF NOT EXISTS entity_task_actor ON entities(kind,json_extract(body,'$.actor'),json_extract(body,'$.archived'))",
+    "CREATE INDEX IF NOT EXISTS entity_proposal_status ON entities(kind,json_extract(body,'$.status'))",
+    "CREATE INDEX IF NOT EXISTS entity_assumption_task ON entities(kind,json_extract(body,'$.task_id'))",
+    "CREATE INDEX IF NOT EXISTS advisory_task ON advisory_runs(task,id)",
+    "CREATE TRIGGER IF NOT EXISTS immutable_artifact_update BEFORE UPDATE ON artifacts BEGIN SELECT RAISE(ABORT,'immutable artifact'); END",
+    "CREATE TRIGGER IF NOT EXISTS immutable_artifact_delete BEFORE DELETE ON artifacts BEGIN SELECT RAISE(ABORT,'immutable artifact'); END",
+]

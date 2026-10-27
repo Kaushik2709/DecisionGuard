@@ -1,4 +1,4 @@
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -156,9 +156,10 @@ class ReviewedMapping(Model):
 
 
 class PortableMetadata(Model):
-    schema_version: Literal[1]
+    schema_version: Literal[1, 2]
     origin_project: str = Field(min_length=1, max_length=200)
     origin_revision: int = Field(ge=0)
     versions: list[DecisionVersion] = Field(max_length=10000)
     heads: dict[str, Annotated[int, Field(ge=1)]]
     mappings: list[ReviewedMapping] = Field(max_length=10000)
+    artifacts: dict[str, dict[str, Any]] = Field(default_factory=dict, max_length=10000)

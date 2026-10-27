@@ -1,0 +1,4 @@
+PLANTED PROTOCOL EXAMPLE. No experiment or volunteer pilot has run.
+A client sends 49900 paise while a provider adapter multiplies by 100 again.
+The expected converted amount is 49900, but this planted change yields 4990000.
+This reviewer-authored rationale is not a measured product outcome.

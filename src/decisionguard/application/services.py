@@ -2,6 +2,7 @@ import hashlib
 import json
 import sqlite3
 import uuid
+import weakref
 from collections.abc import Callable
 from datetime import UTC, datetime
 from pathlib import Path
@@ -23,6 +24,7 @@ from decisionguard.domain.models import (
     Value,
 )
 from decisionguard.git.context import common_dir, git, repository_root, safe_path
+from decisionguard.storage.locking import exclusive_lock
 from decisionguard.storage.sqlite import Store, all_entities, dumps, get, heads, put, revision
 
 
@@ -42,10 +44,21 @@ class Service:
     def __init__(self, directory: Path, session_actor: str | None = None):
         self.directory = directory.resolve()
         self.config = load_config(self.directory)
-        self.store = Store(self.directory / "state.db", self.config.project)
+        lease = exclusive_lock(self.directory / "activity.lock", shared=True)
+        lease.__enter__()
+        self._release = weakref.finalize(self, lease.__exit__, None, None, None)
+        try:
+            self.store = Store(self.directory / "state.db", self.config.project)
+        except BaseException:
+            self.close()
+            raise
         self.session_actor = session_actor
 
+    def close(self) -> None:
+        self._release()
+
     def authorize(self, actor: str, *, coordinator: bool = False) -> None:
+        require(self._release.alive, "INVALID", "Service session is closed")
         current = load_config(self.directory)
         require(
             (current.project, current.root, current.common_dir)
@@ -68,6 +81,7 @@ class Service:
         self, db: sqlite3.Connection, task_id: str, actor: str | None = None
     ) -> dict[str, Any]:
         task = get(db, "task", task_id)
+        require(not task.get("archived", False), "INVALID", "Task is archived; restore it first")
         if actor is not None:
             self.authorize(actor)
             require(task["actor"] == actor, "FORBIDDEN", "Task belongs to another actor")
@@ -123,10 +137,66 @@ class Service:
     def emit(
         self, db: sqlite3.Connection, task_id: str, event_type: str, data: dict[str, Any]
     ) -> None:
+        notice_key = digest({"task": task_id, "type": event_type, "data": data})
         db.execute(
-            "INSERT INTO events(task,body) VALUES(?,?)",
-            (task_id, dumps({"type": event_type, "timestamp": now(), **data})),
+            "INSERT INTO events(task,body) SELECT ?,? WHERE NOT EXISTS "
+            "(SELECT 1 FROM events WHERE task=? AND json_extract(body,'$.notice_key')=?)",
+            (
+                task_id,
+                dumps({"type": event_type, "timestamp": now(), "notice_key": notice_key, **data}),
+                task_id,
+                notice_key,
+            ),
         )
+
+    def relevant(self, task: dict[str, Any], key: str, scope: list[str]) -> bool:
+        return key in task["dependencies"] or any(
+            self.overlap(a, b) for a in task["paths"] for b in scope
+        )
+
+    def proposal_scope(self, db: sqlite3.Connection, proposal: dict[str, Any]) -> list[str]:
+        key = f"{proposal['contract']['boundary']}::{proposal['contract']['key']}"
+        # The predecessor scope matters even when the proposal moves or deletes a boundary.
+        row = db.execute(
+            "SELECT body FROM versions WHERE contract=? AND version=?",
+            (key, proposal["expected_version"]),
+        ).fetchone()
+        current = db.execute(
+            "SELECT v.body FROM heads h JOIN versions v ON h.contract=v.contract "
+            "AND h.version=v.version WHERE h.contract=?",
+            (key,),
+        ).fetchone()
+        return sorted(
+            set(
+                proposal["scope"]
+                + (json.loads(row[0])["scope"] if row else [])
+                + (json.loads(current[0])["scope"] if current else [])
+            )
+        )
+
+    def bootstrap_notices(self, db: sqlite3.Connection, task: dict[str, Any]) -> None:
+        for key, decision in heads(db).items():
+            if self.relevant(task, key, decision["scope"]):
+                self.emit(
+                    db,
+                    task["task_id"],
+                    "accepted_context",
+                    {"contract": key, "version": decision["version"]},
+                )
+        for row in db.execute(
+            "SELECT body FROM entities WHERE kind='proposal' AND json_extract(body,'$.status')='pending'"
+        ):
+            proposal = json.loads(row[0])
+            key = f"{proposal['contract']['boundary']}::{proposal['contract']['key']}"
+            if proposal["status"] == "pending" and self.relevant(
+                task, key, self.proposal_scope(db, proposal)
+            ):
+                self.emit(
+                    db,
+                    task["task_id"],
+                    "pending_impact",
+                    {"proposal_id": proposal["proposal_id"], "contract": key},
+                )
 
     def register(self, request: TaskRequest) -> dict[str, Any]:
         root = Path(request.worktree).resolve()
@@ -158,11 +228,16 @@ class Service:
                 "Task already exists; register a new task for new scope",
             )
             active = heads(db)
-            tasks = all_entities(db, "task")
+            total = db.execute(
+                "SELECT COUNT(*) FROM entities WHERE kind='task' AND COALESCE(json_extract(body,'$.archived'),0)=0"
+            ).fetchone()[0]
+            actor_total = db.execute(
+                "SELECT COUNT(*) FROM entities WHERE kind='task' AND COALESCE(json_extract(body,'$.archived'),0)=0 AND json_extract(body,'$.actor')=?",
+                (request.actor,),
+            ).fetchone()[0]
             require(
-                len(tasks) < self.config.limits.tasks_per_project
-                and sum(t["actor"] == request.actor for t in tasks)
-                < self.config.limits.tasks_per_actor,
+                total < self.config.limits.tasks_per_project
+                and actor_total < self.config.limits.tasks_per_actor,
                 "RESOURCE_LIMIT",
                 "Task quota reached",
             )
@@ -183,6 +258,7 @@ class Service:
             }
             put(db, "task", request.task_id, task)
             db.execute("INSERT INTO cursors(task) VALUES(?)", (request.task_id,))
+            self.bootstrap_notices(db, task)
             return {"task": task}
 
         return self.mutate("register_task", request, action)
@@ -204,11 +280,14 @@ class Service:
             task["dependencies"][key] = request.observed_version
             put(db, "task", request.task_id, task)
             self.invalidate(db, request.task_id)
+            self.bootstrap_notices(db, task)
             return {"assumption": body}
 
         return self.mutate("declare_assumption", request, action)
 
-    def propose(self, request: ProposeRequest) -> dict[str, Any]:
+    def propose(
+        self, request: ProposeRequest, *, _db: sqlite3.Connection | None = None
+    ) -> dict[str, Any]:
         def action(db: sqlite3.Connection) -> dict[str, Any]:
             task = self.task(db, request.task_id, request.actor)
             from decisionguard.git.context import scoped_path
@@ -244,17 +323,25 @@ class Service:
                 "timestamp": now(),
             }
             put(db, "proposal", proposal_id, body)
-            affected = self.affected(db, key)
+            affected = self.affected(db, key, self.proposal_scope(db, body))
             for task_id in affected:
                 self.emit(
                     db, task_id, "pending_impact", {"proposal_id": proposal_id, "contract": key}
                 )
             return {"proposal": body, "affected_tasks": affected}
 
-        return self.mutate("propose_decision", request, action)
+        return action(_db) if _db is not None else self.mutate("propose_decision", request, action)
 
-    def affected(self, db: sqlite3.Connection, key: str) -> list[str]:
-        return [task["task_id"] for task in all_entities(db, "task") if key in task["dependencies"]]
+    def affected(
+        self, db: sqlite3.Connection, key: str, scope: list[str] | None = None
+    ) -> list[str]:
+        tasks = [
+            json.loads(row[0])
+            for row in db.execute(
+                "SELECT body FROM entities WHERE kind='task' AND COALESCE(json_extract(body,'$.archived'),0)=0"
+            )
+        ]
+        return [task["task_id"] for task in tasks if self.relevant(task, key, scope or [])]
 
     def invalidate(self, db: sqlite3.Connection, task_id: str) -> None:
         task = get(db, "task", task_id)
@@ -282,6 +369,7 @@ class Service:
             )
             put(db, "task", request.task_id, task)
             self.invalidate(db, request.task_id)
+            self.bootstrap_notices(db, task)
             self.emit(
                 db,
                 request.task_id,
@@ -317,7 +405,7 @@ class Service:
             proposal["status"] = "accepted" if request.accept else "rejected"
             proposal["review"] = request.model_dump(exclude={"idempotency_key"})
             put(db, "proposal", request.proposal_id, proposal)
-            affected = self.affected(db, key)
+            affected = self.affected(db, key, self.proposal_scope(db, proposal))
             if request.accept:
                 decision = {
                     "contract": proposal["contract"],
@@ -455,12 +543,13 @@ class Service:
         return self.mutate("review_mapping", request, action)
 
     def context(self, task_id: str | None = None) -> dict[str, Any]:
+        require(self._release.alive, "INVALID", "Service session is closed")
         with self.store.connect() as db:
             db.execute("BEGIN")
             task = self.task(db, task_id, self.session_actor) if task_id else None
             active = heads(db)
             if task:
-                active = {k: v for k, v in active.items() if k in task["dependencies"]}
+                active = {k: v for k, v in active.items() if self.relevant(task, k, v["scope"])}
             return envelope(
                 project=self.config.project,
                 revision=revision(db),
@@ -473,7 +562,20 @@ class Service:
         active = heads(db)
         findings: list[dict[str, Any]] = []
         mappings = all_entities(db, "mapping")
-        assumptions = all_entities(db, "assumption")
+        marks = ",".join("?" for _ in task_ids) or "NULL"
+        assumptions = [
+            json.loads(row[0])
+            for row in db.execute(
+                f"SELECT body FROM entities WHERE kind='assumption' AND json_extract(body,'$.task_id') IN ({marks})",
+                task_ids,
+            )
+        ]
+        pending = [
+            json.loads(row[0])
+            for row in db.execute(
+                "SELECT body FROM entities WHERE kind='proposal' AND json_extract(body,'$.status')='pending'"
+            )
+        ]
 
         def add(
             kind: str,
@@ -545,6 +647,25 @@ class Service:
                         for m in mappings
                     )
                     result = "equal" if compatible else compare(expected, actual)
+                    details: list[dict[str, str]] = []
+                    if (
+                        not compatible
+                        and expected.kind == actual.kind == "schema"
+                        and not (expected.deleted or actual.deleted)
+                    ):
+                        from decisionguard.domain.schemas import compare_artifacts
+
+                        documents = [
+                            db.execute(
+                                "SELECT body FROM artifacts WHERE digest=?",
+                                (v.value.removeprefix("sha256:"),),
+                            ).fetchone()
+                            for v in (expected, actual)
+                        ]
+                        if all(documents):
+                            result, details = compare_artifacts(
+                                json.loads(documents[0][0]), json.loads(documents[1][0])
+                            )
                     if result != "equal":
                         add(
                             "confirmed_conflict"
@@ -557,13 +678,12 @@ class Service:
                             assumption["evidence"],
                             "Reconcile declarations or review compatibility",
                         )
-            for proposal in all_entities(db, "proposal"):
+                        if details:
+                            findings[-1]["details"] = details
+            for proposal in pending:
                 key = f"{proposal['contract']['boundary']}::{proposal['contract']['key']}"
-                relevant_path = any(
-                    self.overlap(a, b) for a in task["paths"] for b in proposal["scope"]
-                )
-                if proposal["status"] == "pending" and (
-                    key in task["dependencies"] or relevant_path
+                if proposal["status"] == "pending" and self.relevant(
+                    task, key, self.proposal_scope(db, proposal)
                 ):
                     add(
                         "pending_impact",
@@ -588,6 +708,61 @@ class Service:
             selected = (
                 task_ids
                 if task_ids is not None
-                else [task["task_id"] for task in all_entities(db, "task")]
+                else [
+                    task["task_id"]
+                    for task in all_entities(db, "task")
+                    if not task.get("archived", False)
+                ]
             )
             return envelope(findings=self.findings(db, selected), revision=revision(db))
+
+    def impact(self, task_ids: list[str] | None = None) -> dict[str, Any]:
+        """Explain declared impacts and evidence metadata without running tests or writing receipts."""
+        config_digest = digest(load_config(self.directory).model_dump())
+        with self.store.connect() as db:
+            db.execute("BEGIN")
+            selected = (
+                task_ids
+                if task_ids is not None
+                else [
+                    row[0]
+                    for row in db.execute(
+                        "SELECT id FROM entities WHERE kind='task' AND COALESCE(json_extract(body,'$.archived'),0)=0"
+                    )
+                ]
+            )
+            require(
+                len(selected) <= 1000 and len(set(selected)) == len(selected),
+                "INVALID",
+                "Select distinct tasks",
+            )
+            findings = self.findings(db, selected)
+            tasks = {}
+            for identity in selected:
+                task = self.task(db, identity)
+                run = get(db, "run", task["latest_run_id"]) if task["latest_run_id"] else None
+                stale = (
+                    run is None
+                    or not run["valid"]
+                    or not run["passed"]
+                    or run["status"] != "finished"
+                    or run["revision"] != revision(db)
+                    or run["config_digest"] != config_digest
+                    or run["evidence_generation"] != task["evidence_generation"]
+                )
+                tasks[identity] = {
+                    "latest_run_id": task["latest_run_id"],
+                    "latest_run_status": run["status"] if run else "missing",
+                    "validation_required": stale,
+                    "source_freshness": "requires_gate_check",
+                    "next_action": "Revisit code and run configured local validation"
+                    if stale
+                    else "Check the gate to recompute source freshness",
+                }
+            return envelope(
+                findings=findings,
+                tasks=tasks,
+                revision=revision(db),
+                source_freshness_checked=False,
+                receipt_created=False,
+            )

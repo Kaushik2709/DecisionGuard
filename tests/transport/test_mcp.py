@@ -33,6 +33,9 @@ def test_real_stdio_client_and_bound_actor(project):
                     "refresh_dependencies",
                     "list_conflicts",
                     "check_gate",
+                    "preview_contracts",
+                    "explain_impact",
+                    "list_advisories",
                 }
                 response = await session.call_tool("get_context", {"task_id": "worker"})
                 assert not response.isError

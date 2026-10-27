@@ -68,10 +68,14 @@ def test_actual_combined_files_required(project, tmp_path):
     assert not gate(service, ["worker", "integration"])["receipt"]["passed"]
 
 
-def test_export_import_requires_fresh_local_validation(project, tmp_path):
+@pytest.mark.parametrize("metadata_version", [1, 2])
+def test_export_import_requires_fresh_local_validation(project, tmp_path, metadata_version):
     service, root = project
     validate(service, TaskMutation(actor="worker", task_id="worker", idempotency_key=key()))
     exported = export_metadata(service)
+    if metadata_version == 1:
+        exported["schema_version"] = 1
+        exported.pop("artifacts")
     assert "runs" not in exported and "coordinators" not in exported
     clone = tmp_path / "clone"
     git(tmp_path, "clone", str(root), str(clone))

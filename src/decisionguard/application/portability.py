@@ -2,7 +2,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from decisionguard.application.services import Service, digest, envelope
+from decisionguard.application.services import Service, digest
 from decisionguard.domain.errors import require
 from decisionguard.domain.models import Contract, Mutation, PortableMetadata, Value
 from decisionguard.git.context import safe_path
@@ -12,15 +12,28 @@ from decisionguard.storage.sqlite import all_entities, dumps, heads, put, revisi
 def export_metadata(service: Service) -> dict[str, Any]:
     with service.store.connect() as db:
         db.execute("BEGIN")
-        return envelope(
+        versions = [
+            json.loads(row[0])
+            for row in db.execute("SELECT body FROM versions ORDER BY contract,version")
+        ]
+        required = {
+            v["value"]["value"].removeprefix("sha256:")
+            for v in versions
+            if v["value"]["kind"] == "schema"
+        }
+        artifacts = {}
+        for key in required:
+            row = db.execute("SELECT body FROM artifacts WHERE digest=?", (key,)).fetchone()
+            if row:
+                artifacts[key] = json.loads(row[0])
+        return dict(
+            schema_version=2,
             origin_project=service.config.project,
             origin_revision=revision(db),
-            versions=[
-                json.loads(row[0])
-                for row in db.execute("SELECT body FROM versions ORDER BY contract,version")
-            ],
+            versions=versions,
             heads={k: v["version"] for k, v in heads(db).items()},
             mappings=all_entities(db, "mapping"),
+            artifacts=artifacts,
         )
 
 
@@ -28,8 +41,22 @@ def import_metadata(
     service: Service, request: Mutation, metadata: dict[str, Any]
 ) -> dict[str, Any]:
     service.authorize(request.actor, coordinator=True)
-    require(metadata.get("schema_version") == 1, "INVALID", "Unsupported export schema")
+    require(metadata.get("schema_version") in (1, 2), "INVALID", "Unsupported export schema")
     metadata = PortableMetadata.model_validate(metadata).model_dump()
+    require(
+        metadata["schema_version"] == 2 or not metadata["artifacts"],
+        "INVALID",
+        "Artifacts require export schema 2",
+    )
+    for fingerprint, artifact in metadata["artifacts"].items():
+        require(digest(artifact) == fingerprint, "INVALID", "Artifact digest mismatch")
+        require(
+            artifact.get("direction") in {"request", "response", "security"}
+            and isinstance(artifact.get("schema"), dict)
+            and isinstance(artifact.get("unsupported"), list),
+            "INVALID",
+            "Invalid contract artifact",
+        )
     by_contract: dict[str, list[int]] = {}
     for decision in metadata["versions"]:
         identity = Contract.model_validate(decision["contract"]).identity
@@ -70,6 +97,8 @@ def import_metadata(
             "Import requires empty project",
         )
         root = Path(service.config.root)
+        for fingerprint, artifact in metadata["artifacts"].items():
+            db.execute("INSERT INTO artifacts VALUES(?,?)", (fingerprint, dumps(artifact)))
         for decision in metadata["versions"]:
             contract = Contract.model_validate(decision["contract"])
             Value.model_validate(decision["value"])

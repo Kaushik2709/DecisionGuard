@@ -1,0 +1,4 @@
+{
+  "task_id": "checkout", "model": "jev-1.13.0", "attempt": 0,
+  "candidates": [{"contract": {"boundary": "checkout.request", "key": "amount.unit"}, "paths": ["client.ts", "api.py"]}]
+}

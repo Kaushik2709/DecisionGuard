@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Any
 
 from decisionguard.domain.errors import GuardError, require
-from decisionguard.storage.migrations import EPOCH_TRIGGERS, SCHEMA
+from decisionguard.storage.migrations import EPOCH_TRIGGERS, SCHEMA, V3
 
 
 def dumps(value: Any) -> str:
@@ -22,9 +22,11 @@ class Store:
             path.parent.mkdir(parents=True, exist_ok=True)
             with self.connect() as db:
                 version = db.execute("PRAGMA user_version").fetchone()[0]
-                require(version in (0, 2), "MIGRATION_REQUIRED", "Run decisionguard migrate")
+                require(version in (0, 3), "MIGRATION_REQUIRED", "Run decisionguard migrate")
                 db.executescript(SCHEMA)
-                db.execute("PRAGMA user_version=2")
+                db.execute("PRAGMA user_version=3")
+                for statement in V3:
+                    db.execute(statement)
                 db.execute("INSERT OR IGNORE INTO meta VALUES('project',?)", (project,))
                 db.execute("INSERT OR IGNORE INTO meta VALUES('revision','0')")
                 db.execute("INSERT OR IGNORE INTO meta VALUES('state_epoch','0')")
@@ -33,7 +35,7 @@ class Store:
                 db.commit()
         with self.connect() as db:
             require(
-                db.execute("PRAGMA user_version").fetchone()[0] == 2,
+                db.execute("PRAGMA user_version").fetchone()[0] == 3,
                 "MIGRATION_REQUIRED",
                 "Unsupported database schema; run decisionguard migrate for v1",
             )

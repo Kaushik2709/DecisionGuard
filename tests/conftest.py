@@ -25,6 +25,12 @@ def key():
     return str(uuid.uuid4())
 
 
+@pytest.fixture(autouse=True)
+def isolated_git_discovery(tmp_path, monkeypatch):
+    # Fixtures under artifacts must not accidentally discover the real parent repository.
+    monkeypatch.setenv("GIT_CEILING_DIRECTORIES", str(tmp_path))
+
+
 def accept(service, proposal, accept=True):
     return service.review(
         ReviewRequest(

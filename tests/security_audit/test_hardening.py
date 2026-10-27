@@ -225,6 +225,7 @@ def test_migration_preserves_history_and_requires_new_approval_and_evidence(proj
     before = service.context()["decisions"]
     with service.store.connect() as db:
         db.execute("PRAGMA user_version=1")
+    service.close()
     with pytest.raises(GuardError, match="Stop all"):
         migrate(service.directory, sessions_stopped=False)
     result = migrate(service.directory, sessions_stopped=True)
@@ -249,6 +250,7 @@ def test_migration_preserves_history_and_requires_new_approval_and_evidence(proj
     )
     assert run(current)["run"]["valid"]
     assert gate(current, ["worker"])["receipt"]["passed"]
+    current.close()
     assert migrate(service.directory, sessions_stopped=True)["status"] == "already_current"
 
 
@@ -256,7 +258,15 @@ def test_migration_rollback_keeps_v1_on_corruption(project):
     service, _ = project
     with service.store.connect() as db:
         db.execute("PRAGMA user_version=1")
+        for name in (
+            "entity_active_actor",
+            "entity_task_actor",
+            "entity_proposal_status",
+            "entity_assumption_task",
+        ):
+            db.execute(f"DROP INDEX {name}")
         db.execute("UPDATE entities SET body='invalid-json' WHERE kind='task'")
+    service.close()
     with pytest.raises(json.JSONDecodeError):
         migrate(service.directory, sessions_stopped=True)
     with sqlite3.connect(service.directory / "state.db") as db:

@@ -1,0 +1,23 @@
+{
+  "openapi": "3.1.1",
+  "info": {"title": "Disposable checkout fixture", "version": "1"},
+  "security": [{"fixtureBearer": []}],
+  "components": {"securitySchemes": {"fixtureBearer": {"type": "http", "scheme": "bearer"}}},
+  "paths": {
+    "/checkout": {
+      "post": {
+        "requestBody": {
+          "required": true,
+          "content": {"application/json": {"schema": {
+            "type": "object", "required": ["amount"], "additionalProperties": false,
+            "properties": {"amount": {"type": "number"}}
+          }}}
+        },
+        "responses": {"200": {"description": "Mock provider result", "content": {"application/json": {"schema": {
+          "type": "object", "required": ["provider_amount", "currency"], "additionalProperties": false,
+          "properties": {"provider_amount": {"type": "integer"}, "currency": {"type": "string", "enum": ["INR"]}}
+        }}}}}
+      }
+    }
+  }
+}

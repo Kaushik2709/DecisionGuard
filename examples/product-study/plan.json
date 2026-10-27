@@ -1,0 +1,42 @@
+{
+  "schema_version": 1,
+  "study_id": "pending-protocol-example",
+  "study_kind": "fixture",
+  "registered_at": "2026-10-20T00:00:00Z",
+  "selection": "planted",
+  "question": "Does reviewed coordination add useful detection or reduce rework over the existing full test baseline?",
+  "baseline_description": "Planned full schema/codegen, contract and integration baseline. Configurations below must be replaced before a real study.",
+  "treatment_description": "Same baseline plus explicit DecisionGuard contracts, polling and fresh validation gates.",
+  "checks": {
+    "schema_validation": "NOT CONFIGURED: record actual schema validator, version, argv and configuration hash",
+    "codegen": "NOT CONFIGURED: record generator and client type-checker versions, argv and configuration hashes",
+    "contract_tests": "NOT CONFIGURED: record consumer/provider checks, versions, argv and fixture revisions",
+    "integration_tests": "NOT CONFIGURED: record actual combined checkout checks and starting source fingerprint"
+  },
+  "success_criteria": [
+    "Replace these illustrative criteria with workflow-specific thresholds before measuring.",
+    "Review net defect/rework benefit alongside setup, benign blocks and added elapsed time.",
+    "Never use this pending planted example to claim product effectiveness."
+  ],
+  "participants": [
+    "planned-scripted-operator"
+  ],
+  "cases": [
+    {
+      "id": "pending-unit-mismatch",
+      "repository": "planned-fixture-repository",
+      "change_family": "amount-unit",
+      "source_revision": "8f76f8008e0e0d62b5291c1fa990a4ce9f7f7debf32831cc1bf43e9b7cb20262",
+      "expected": "harmful",
+      "reviewed_by": [
+        "protocol-example-author"
+      ],
+      "label_evidence": [
+        {
+          "path": "label-evidence.txt",
+          "sha256": "8f76f8008e0e0d62b5291c1fa990a4ce9f7f7debf32831cc1bf43e9b7cb20262"
+        }
+      ]
+    }
+  ]
+}

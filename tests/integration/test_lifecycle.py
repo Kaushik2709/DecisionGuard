@@ -39,7 +39,9 @@ def test_acceptance_ack_refresh_and_restart(project):
             db.execute("UPDATE versions SET version=99")
     service = Service(service.directory)
     events = service.poll("worker", "worker")["events"]
-    assert [e["type"] for e in events] == ["pending_impact", "accepted"]
+    assert [
+        e["type"] for e in events if e.get("proposal_id") == change["proposal"]["proposal_id"]
+    ] == ["pending_impact", "accepted"]
     service.ack(
         AckRequest(
             actor="worker", task_id="worker", idempotency_key=key(), event_id=events[-1]["event_id"]
@@ -119,12 +121,14 @@ def test_authority_and_delivery(project):
         service.poll("worker", "someone-else")
     with pytest.raises(GuardError):
         service.poll("worker", "worker", limit=101)
-    events = service.poll("worker", "worker", limit=1)["events"]
-    assert len(events) == 1
-    assert service.poll("worker", "worker", after=events[0]["event_id"])["events"] == []
+    first = service.poll("worker", "worker", limit=1)["events"]
+    assert len(first) == 1
+    events = service.poll("worker", "worker", after=first[0]["event_id"])["events"]
+    assert events[-1]["type"] == "pending_impact"
+    assert service.poll("worker", "worker", after=events[-1]["event_id"])["events"] == []
     accept(service, change)
     assert (
-        service.poll("worker", "worker", after=events[0]["event_id"])["events"][0]["type"]
+        service.poll("worker", "worker", after=events[-1]["event_id"])["events"][0]["type"]
         == "accepted"
     )
 

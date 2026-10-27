@@ -11,6 +11,7 @@ from mcp.types import CallToolResult, TextContent
 from decisionguard.application.config import state_dir
 from decisionguard.application.services import Service, envelope
 from decisionguard.application.validation import gate
+from decisionguard.domain.contracts import ContractScan
 from decisionguard.domain.errors import GuardError
 from decisionguard.domain.models import (
     AckRequest,
@@ -105,6 +106,28 @@ def build_server(service: Service) -> FastMCP:
     def check_gate(task_ids: list[str], integration_task: str | None = None) -> dict[str, Any]:
         """Check fresh runner evidence and actual combined source; executes no commands."""
         return gate(service, task_ids, integration_task)
+
+    @server.tool()
+    @guarded
+    def preview_contracts(request: ContractScan) -> dict[str, Any]:
+        """Preview approved-scope local OpenAPI files. No publication or network requests."""
+        from decisionguard.application.contracts import scan
+
+        return scan(service, request)
+
+    @server.tool()
+    @guarded
+    def explain_impact(task_ids: list[str] | None = None) -> dict[str, Any]:
+        """Explain current impacts and required revalidation; executes nothing."""
+        return service.impact(task_ids)
+
+    @server.tool()
+    @guarded
+    def list_advisories(task_id: str, limit: int = 100) -> dict[str, Any]:
+        """Read probabilistic advisory history. Cannot submit code or alter clearance."""
+        from decisionguard.application.advisories import list_advisories as read
+
+        return read(service, task_id, limit)
 
     return server
 

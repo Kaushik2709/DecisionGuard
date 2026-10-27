@@ -6,6 +6,12 @@ owns lifecycle and gate services. `storage` owns SQLite transactions/migrations.
 `git` resolves repository identity and validates worktree scope. `validation` captures
 source and executes locally reviewed argv. `adapters` provides Typer and official SDK stdio.
 `reports` contains deterministic evaluation; the demo creates real disposable worktrees.
+Product studies use separate domain records, pure paired-report calculations, and an application
+file-verification boundary. CLI evaluation commands need no project database and execute no
+commands from study records. Study observations cannot change decisions, epochs or gate evidence.
+Onboarding adapts explicit setup intent to the same initialization/registration services. Next-action
+guidance uses the same gate calculation with receipt persistence disabled. Disposable reliability
+workloads exercise real transactions and worktree workers; they accept only new fixture destinations.
 
 ## State and concurrency
 Use `<absolute git common dir>/decisionguard/state.db` and adjacent `config.json`.
@@ -49,3 +55,26 @@ Coverage is declared, not inferred from code. Files ignored by Git are outside s
 tracked; secrets must not be declared as evidence. Tests cannot prove arbitrary architectural
 prose. Polling is manual at documented checkpoints, and skills cannot guarantee compliance.
 Pre/post digests detect persistent changes, not a malicious edit-and-restore during execution.
+
+## Unreleased schema 3 extension
+
+Schema 3 adds immutable content-addressed OpenAPI artifacts, indexed task/event lookups and a
+separate advisory_runs table. Advisory writes have no decision-revision or gate-epoch triggers.
+No authoritative service reads advisory classifications when deciding compatibility or clearance.
+Directional schema logic remains in domain; filesystem, database, CLI and MCP behavior remain
+in application/adapters. Portable metadata v2 carries artifacts; v1 imports remain supported.
+
+Service instances hold shared OS-backed activity leases for their lifetime. Migration and
+restore acquire an exclusive lease after explicit stopped-session acknowledgement. Call close()
+when embedding a service that must release its lease. Legacy versions do not hold these leases:
+all old clients must still be stopped before maintenance. Migration never runs automatically.
+
+Validation owns Windows children in a kill-on-close Job Object before resuming their suspended
+primary thread. POSIX commands run in a new process group, cleaned in finally on success,
+timeout or Python interruption. This is lifecycle control, not a hostile-code sandbox;
+arbitrary POSIX daemon escape or forced supervisor death is not claimed to be contained.
+
+Jev requests use the official TypeSafe endpoint and versioned model IDs, with a whole-request
+10-second deadline and bounded response parsing. Preview never performs a request. Raw source
+and the API key are not saved in advisory history; source hashes and typed results are retained.
+CLI rendering of Codex configuration is preview-only; global client settings are never edited.

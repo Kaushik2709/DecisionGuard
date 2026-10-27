@@ -1,0 +1,21 @@
+{
+  "task_id": "checkout",
+  "spec": "openapi.json",
+  "bindings": [
+    {
+      "method": "post", "path": "/checkout", "direction": "request",
+      "contract": {"boundary": "checkout.request", "key": "body"}, "scope": ["."],
+      "producers": ["checkout"], "consumers": ["checkout"],
+      "units": [{"pointer": "/properties/amount", "contract": {"boundary": "checkout.request", "key": "amount.unit"},
+                 "value": {"kind": "money_unit", "value": "INR.major.number"}}]
+    },
+    {
+      "method": "post", "path": "/checkout", "direction": "response", "status": "200",
+      "contract": {"boundary": "checkout.response", "key": "body"}, "scope": ["."]
+    },
+    {
+      "method": "post", "path": "/checkout", "direction": "security",
+      "contract": {"boundary": "checkout.auth", "key": "requirement"}, "scope": ["."]
+    }
+  ]
+}

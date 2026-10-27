@@ -6,6 +6,42 @@ DecisionGuard tracks shared contracts, affected tasks, and validation tied to cu
 It provides a CLI, official MCP stdio server, shared SQLite state across linked worktrees,
 explicit coordinator review, durable polling, and scoped integration gates. No API key is needed.
 
+It coordinates reviewed agreements and fresh validation across parallel worktrees. Existing
+schemas/codegen and contract/integration tests remain the baseline. The offline
+[paired product study](docs/PRODUCT_EVALUATION.md) measures incremental value, setup effort and
+benign blocks without granting effectiveness or release approval. Real-user benefit is unverified.
+The [alpha workflow](docs/ALPHA_WORKFLOW.md) adds guided setup, current-source next actions,
+disposable recovery/soak checks and an empty pilot kit. The [strong baseline fixture](examples/strong-baseline/README.md)
+runs actual schema/codegen/type/contract/HTTP checks and credits baseline detections.
+
+The unreleased next phase adds reviewed OpenAPI 3.1.x contracts, directional schema checks,
+impact/watch/doctor commands, backup/restore and optional previewed Jev advisories. Advice
+never changes clearance. See the [TypeScript/Python example](examples/fullstack-checkout/README.md)
+and [evaluation/release gates](docs/ADVISORY_EVALUATION.md). A portal and automatic agent-to-agent
+delivery are not implemented. This remains a trusted local-user tool, not a hosted service.
+
+Existing schema 1/2 installations must stop all clients before
+`decisionguard migrate --sessions-stopped`. Migration backs up the database and invalidates prior validation. Never
+migrate beside legacy clients; regenerate evidence afterward. Database schema is 3; CLI/MCP
+envelopes remain version 1, and exported metadata is version 2 with v1 import support.
+
+Useful new commands (use `--help` for positional arguments):
+
+```
+decisionguard --root <repository> doctor
+decisionguard --root <repository> setup codex frontend
+decisionguard --root <repository> impact
+decisionguard --root <repository> watch frontend frontend --once
+decisionguard --root <repository> backup <new-backup.db>
+decisionguard --root <repository> maintain
+```
+
+`setup codex` prints a configuration preview; it does not install it or change global settings.
+`maintain` previews pruning; `--apply` is explicit. Archival, restore and proposal operations use
+structured JSON requests. Optional `uv sync --locked --extra jev --group dev` installs the Jev
+extra. Only `advice classify` makes a model request using `DECISIONGUARD_JEV_API_KEY`; preview,
+normal gates and offline tests do not. Never share uninspected source or put keys in JSON.
+
 ## Install and try
 
 Requires Git, Python 3.11+, and [uv](https://docs.astral.sh/uv/).
@@ -111,14 +147,15 @@ integration must use a distinct task and worktree. See [the audit](docs/SECURITY
 
 ## Upgrading and scope approval
 
-Stop all running DecisionGuard CLI/MCP sessions before upgrading database v1:
+Stop all running DecisionGuard CLI/MCP sessions before upgrading database v1 or v2:
 
 ```powershell
 uv run decisionguard --root D:/YourRepository migrate --sessions-stopped
 ```
 
-The migration keeps a SQLite backup, preserves history, invalidates old evidence and requires
-approval of existing scopes. Fresh CLI registrations are locally approved; MCP registrations
+The migration keeps a SQLite backup, preserves history and invalidates old evidence. A v1
+migration also requires approval of existing scopes; v2 retains its approved scopes.
+Fresh CLI registrations are locally approved; MCP registrations
 need explicit coordinator approval. Supply this JSON to `approve-task-scope request.json`:
 
 ```json
@@ -130,7 +167,7 @@ use an explicitly approved proposal task when the change spans multiple implemen
 Configuration supports optional resource `limits` described in [design.md](design.md).
 Path enumeration is bounded before hashing, including a 16 MiB default `snapshot_name_bytes`
 budget. Adding this limit changes the configuration digest: regenerate validation evidence
-after updating an existing installation, even when its database already uses schema v2.
+after updating an existing installation. All v1/v2 installations must migrate to schema 3.
 `prune-receipts --days 30 --keep 1000` is explicit maintenance and preserves decision/run/retry
 history. Initialization retries recover its journaled identity; never delete a database to
 resolve a setup error without inspecting and backing up its contents.

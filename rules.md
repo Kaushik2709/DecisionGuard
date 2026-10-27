@@ -18,3 +18,14 @@
   back to historical success after a newer failure. No self-integration or unapproved task scope.
 - Run source capture outside writer transactions; recheck the database epoch before receipt commit.
 - Preserve existing databases during recovery; migrate only with stopped sessions and a backup.
+- Treat classifier output as advisory data. Never accept, suppress unknowns, grant authority,
+  execute commands or clear a gate based on a model prediction or confidence threshold.
+- No background classifier calls. Only explicit CLI submission of a current inspected payload
+  may leave the machine. Do not reuse keys from other projects or persist raw code/API keys.
+- Keep advisory writes separate from authoritative revisions/epochs. A failed classifier must
+  report unavailability, never fabricate a safe result. Retain real evaluation provenance.
+- Setup previews must not initialize state, accept decisions or run validation. Next-action
+  guidance preserves all findings and cannot persist a clearance receipt. Keep reliability
+  workloads confined to new disposable roots; never fill or corrupt a real project database.
+- Pilot feedback requires consent and retained response evidence. Stated pricing interest is
+  not a payment; fixture metrics and short soak runs never establish adoption or production reliability.

@@ -12,12 +12,18 @@ license-files = ["LICENSE"]
 requires-python = ">=3.11"
 dependencies = ["pydantic>=2.10,<3", "typer>=0.15,<1", "mcp>=1.20,<2"]
 
+[project.optional-dependencies]
+jev = ["httpx>=0.28,<1"]
+
 [project.scripts]
 decisionguard = "decisionguard.adapters.cli:main"
 decisionguard-mcp = "decisionguard.adapters.mcp:main"
 
+[tool.hatch.build.targets.wheel.force-include]
+"skills/decisionguard-workflow" = "decisionguard/resources/decisionguard-workflow"
+
 [dependency-groups]
-dev = ["pytest>=8,<10", "ruff>=0.11", "mypy>=1.15"]
+dev = ["pytest>=8,<10", "ruff>=0.11", "mypy>=1.15", "jsonschema==4.26.0"]
 
 [tool.ruff]
 line-length = 100

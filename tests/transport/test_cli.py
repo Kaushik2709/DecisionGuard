@@ -64,10 +64,11 @@ def test_administrative_migration_scope_and_pruning(project, tmp_path):
     service, root = project
     with service.store.connect() as db:
         db.execute("PRAGMA user_version=1")
+    service.close()
     code, result = cli("--root", root, "migrate")
     assert code == 2
     code, result = cli("--root", root, "migrate", "--sessions-stopped")
-    assert code == 0 and result["database_version"] == 2
+    assert code == 0 and result["database_version"] == 3
     request = tmp_path / "approve.json"
     request.write_text(
         json.dumps(

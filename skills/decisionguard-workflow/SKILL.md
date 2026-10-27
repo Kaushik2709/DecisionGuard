@@ -33,3 +33,13 @@ Do not merge branches on behalf of the engine. A passing receipt is a point-in-t
 
 These are manual workflow checkpoints. Skill activation does not guarantee agent compliance;
 the engine enforces authority/version checks and evidence freshness when its tools are invoked.
+
+For reviewed API specifications, preview_contracts can inspect a selected OpenAPI JSON file
+inside your approved task scope. A preview is not publication or acceptance. Unsupported
+schema behavior remains unknown. Use explain_impact to understand blockers and required
+revalidation; producer/consumer metadata does not replace explicit implementation assumptions.
+
+list_advisories reads optional probabilistic warnings. Treat them as suggestions to investigate,
+not permission, compatibility proof or passing evidence. Never suppress a deterministic finding
+because a classifier reports no impact. Do not submit source to an external classifier through
+the trusted CLI unless the user explicitly requests submission of the exact inspected payload.

@@ -11,8 +11,10 @@ MCP task registration creates an unapproved scope. The local coordinator must ru
 `approve-task-scope` before proposals or validation can use it. Authority configuration is
 reloaded for mutations, so removing a coordinator also denies subsequent requests and cached
 mutation retries on already-running sessions. Malformed configuration fails closed.
-Before upgrading v1 state, stop all clients/servers, run `migrate --sessions-stopped`, approve
-existing task scopes, and rerun validation. Keep the generated SQLite backup.
+Before upgrading v1/v2 state to schema 3, stop all clients/servers and run
+`migrate --sessions-stopped`. Approve existing task scopes after a v1 migration and rerun
+validation after either migration. Keep the generated SQLite backup. New service sessions hold
+shared activity leases; maintenance rejects a live lease. Old binaries do not hold these leases.
 
 Example Codex configuration (replace absolute paths for your machine):
 
@@ -31,6 +33,12 @@ protocol messages; SDK diagnostics use stderr. `tests/transport/test_mcp.py` lau
 SDK client, initializes the server, lists tools, checks structured results and forbidden inputs.
 This is transport evidence; it does not establish that any particular interactive harness
 automatically polls events or complies with a skill.
+
+The unreleased server exposes 13 tools: the original ten plus preview_contracts,
+explain_impact and list_advisories. Previews read only approved-scope local files, impact reports
+do not claim source freshness, and advice retrieval never calls a provider or changes clearance.
+`decisionguard setup codex <actor>` prints reviewed TOML and canonical workflow content without
+modifying global settings. The same skill source is included in built wheels.
 
 ## Workflow skill
 
