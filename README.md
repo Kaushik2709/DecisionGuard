@@ -1,187 +1,275 @@
+<div align="center">
+
 # DecisionGuard
 
-Local-first decision consistency for agents working in Git worktrees. Python 3.11+.
+### Keep coding agents aligned across Git worktrees.
 
-DecisionGuard tracks shared contracts, affected tasks, and validation tied to current source.
-It provides a CLI, official MCP stdio server, shared SQLite state across linked worktrees,
-explicit coordinator review, durable polling, and scoped integration gates. No API key is needed.
+Declare shared contracts, review changes, and require fresh evidence from the code you intend to integrate.
 
-It coordinates reviewed agreements and fresh validation across parallel worktrees. Existing
-schemas/codegen and contract/integration tests remain the baseline. The offline
-[paired product study](docs/PRODUCT_EVALUATION.md) measures incremental value, setup effort and
-benign blocks without granting effectiveness or release approval. Real-user benefit is unverified.
-The [alpha workflow](docs/ALPHA_WORKFLOW.md) adds guided setup, current-source next actions,
-disposable recovery/soak checks and an empty pilot kit. The [strong baseline fixture](examples/strong-baseline/README.md)
-runs actual schema/codegen/type/contract/HTTP checks and credits baseline detections.
+![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)
+![MCP stdio](https://img.shields.io/badge/MCP-stdio-6457A6?style=flat-square)
+![Local first](https://img.shields.io/badge/state-local%20SQLite-2E7D62?style=flat-square)
+![MIT license](https://img.shields.io/badge/license-MIT-555?style=flat-square)
 
-The unreleased next phase adds reviewed OpenAPI 3.1.x contracts, directional schema checks,
-impact/watch/doctor commands, backup/restore and optional previewed Jev advisories. Advice
-never changes clearance. See the [TypeScript/Python example](examples/fullstack-checkout/README.md)
-and [evaluation/release gates](docs/ADVISORY_EVALUATION.md). A portal and automatic agent-to-agent
-delivery are not implemented. This remains a trusted local-user tool, not a hosted service.
+[Quickstart](#quickstart) · [Connect an agent](#2-connect-an-agent-over-mcp) · [How it works](#3-run-the-review-and-validation-loop) · [CLI reference](#cli-workflow) · [Limits](#what-the-gate-does-and-does-not-prove)
 
-Existing schema 1/2 installations must stop all clients before
-`decisionguard migrate --sessions-stopped`. Migration backs up the database and invalidates prior validation. Never
-migrate beside legacy clients; regenerate evidence afterward. Database schema is 3; CLI/MCP
-envelopes remain version 1, and exported metadata is version 2 with v1 import support.
+</div>
 
-Useful new commands (use `--help` for positional arguments):
+---
 
-```
-decisionguard --root <repository> doctor
-decisionguard --root <repository> setup codex frontend
-decisionguard --root <repository> impact
-decisionguard --root <repository> watch frontend frontend --once
-decisionguard --root <repository> backup <new-backup.db>
-decisionguard --root <repository> maintain
-```
+Two branches can merge cleanly and still disagree about a shared behavior. In DecisionGuard's
+checkout demo, one agent changes a public amount from decimal major units to integer paise
+while another still expects the old unit. The merge can succeed and the amount can be wrong
+by **100x**. DecisionGuard makes that declared disagreement visible before integration.
 
-`setup codex` prints a configuration preview; it does not install it or change global settings.
-`maintain` previews pruning; `--apply` is explicit. Archival, restore and proposal operations use
-structured JSON requests. Optional `uv sync --locked --extra jev --group dev` installs the Jev
-extra. Only `advice classify` makes a model request using `DECISIONGUARD_JEV_API_KEY`; preview,
-normal gates and offline tests do not. Never share uninspected source or put keys in JSON.
+> [!NOTE]
+> **Status: local alpha (`0.1.0`).** The CLI and MCP stdio server are implemented and locally
+> tested. This is a trusted, same-user developer tool. It has no hosted service, mandatory
+> model, or API key. Production reliability and real-user benefit have not been established.
 
-## Install and try
+## At a glance
 
-Requires Git, Python 3.11+, and [uv](https://docs.astral.sh/uv/).
+| | DecisionGuard provides |
+|---|---|
+| **Shared decisions** | Immutable, versioned contracts and explicit coordinator review. |
+| **Agent context** | Fixed-actor MCP tools for context, proposals, impact events, and gate inspection. |
+| **Fresh evidence** | Locally configured test runners tied to task, source, configuration, and decision versions. |
+| **Combined check** | A scoped gate against a separate worktree containing the source you plan to merge. |
+
+It complements schemas, code generation, contract tests, and integration tests. It checks
+**declared** expectations and configured validation; it does not infer arbitrary semantics.
+
+## Quickstart
+
+You need Git, [Python 3.11+](https://www.python.org/downloads/), and
+[uv](https://docs.astral.sh/uv/). From a clone of this repository:
 
 ```powershell
 uv sync --locked --group dev
-uv run decisionguard --help
 uv run decisionguard demo
+```
+
+The demo creates disposable, linked Git worktrees under `artifacts/`. It shows a pending
+impact, a blocked gate, a repaired implementation, and a fresh passing combined check.
+Agents are simulated; the validation and worktree operations are real local operations.
+No model is called. See the [demo walkthrough](examples/checkout/README.md).
+
+To try the deterministic case benchmark separately:
+
+```powershell
 uv run decisionguard benchmark
 ```
 
-The demo retains disposable repositories under `artifacts/`. It exposes a real 100× mismatch
-after a clean merge, blocks acknowledgement-only completion, and passes after repaired source
-and fresh combined checks. A second scenario rejects the change and preserves an explicit
-conversion adapter. Agents are simulated; no model calls occur. See [the demo guide](examples/checkout/README.md).
-If a managed Windows environment blocks the default uv cache, set `UV_CACHE_DIR` to a writable
-local directory before syncing. Keep caches outside captured application source.
+This is a planted diagnostic fixture, not a live-agent effectiveness score. If Windows blocks
+the default uv cache, set `UV_CACHE_DIR` to a writable directory outside captured source.
 
-## Initialize a repository
+## Use it on your project
 
-Create a reviewed runner JSON **outside the target source tree**, using the absolute Python
-path for the target project's environment:
+### 1. Initialize shared state
+
+Create a runner JSON file **outside your project's captured source**. Point it at the Python
+environment and tests for *your* repository (the Windows path below is an example):
 
 ```json
-{"argv":["D:/YourRepository/.venv/Scripts/python.exe","-m","pytest","-q"],"cwd":".","timeout":120,"output_limit":16000}
+{
+  "argv": ["D:/YourRepository/.venv/Scripts/python.exe", "-m", "pytest", "-q"],
+  "cwd": ".",
+  "timeout": 120,
+  "output_limit": 16000
+}
 ```
 
-From this installed checkout:
+From the DecisionGuard checkout, initialize and diagnose the target repository:
 
 ```powershell
 uv run decisionguard --root D:/YourRepository init coordinator D:/scratch/runner.json
-uv run decisionguard --root D:/YourRepository status
+uv run decisionguard --root D:/YourRepository doctor
 ```
 
-State/config live in `decisionguard/` beneath the canonical Git common directory. Linked
-worktrees share state automatically; independent clones do not. For non-Git projects supply
-both `--root` and `--state`. Isolated integration requires Git. SQLite must stay on a local
-filesystem supporting WAL. Never commit mutable state.
+The coordinator name is the local actor authorized to review proposals. The runner is a
+reviewed local command; MCP requests cannot replace it with a supplied command. State and
+configuration live at `<git-common-dir>/decisionguard/`, so linked worktrees share them.
+Independent clones do not. Keep the SQLite state on a local filesystem with WAL support and
+out of version control.
+
+For a preview-first setup that registers several tasks at once, see the
+[alpha onboarding guide](docs/ALPHA_WORKFLOW.md). It previews by default and applies only
+with `--apply`.
+
+### 2. Connect an agent over MCP
+
+Configure one fixed actor per coding session. Example Codex configuration on Windows:
+
+```toml
+[mcp_servers.decisionguard]
+command = 'D:\DecisionGuard\.venv\Scripts\python.exe'
+args = ['-m', 'decisionguard.adapters.mcp', '--root', 'D:\YourRepository-frontend', '--actor', 'frontend']
+```
+
+Replace the absolute paths and actor. On Linux/macOS, use the installed environment's
+`bin/python`. The installed `decisionguard-mcp --root <worktree> --actor <name>` entry point
+is equivalent. Give each session its own configuration and linked worktree root. Reload the
+client and confirm its DecisionGuard tools appear.
+
+You can generate a Codex configuration preview with:
+
+```powershell
+uv run decisionguard --root D:/YourRepository setup codex frontend
+```
+
+The preview does not edit global settings. MCP-created tasks require coordinator scope
+approval through the **local CLI** before they can propose or validate. The optional
+[workflow skill](skills/decisionguard-workflow/SKILL.md) describes polling checkpoints; it
+does not make an agent comply automatically. Full setup details are in
+[MCP_SETUP.md](docs/MCP_SETUP.md).
+
+### 3. Run the review and validation loop
+
+```mermaid
+flowchart LR
+    A[Register task<br/>and assumptions] --> B[Propose shared<br/>contract change]
+    B --> C{Coordinator<br/>review}
+    C -->|Accepted| D[Poll impact<br/>and repair code]
+    C -->|Rejected| E[Keep accepted<br/>contract]
+    D --> F[CLI validates<br/>current source]
+    E --> F
+    F --> G[Validate separate<br/>combined worktree]
+    G --> H{Scoped gate}
+    H -->|Findings| D
+    H -->|Pass| I[Point-in-time<br/>receipt]
+```
+
+Registration records the worktree, allowed changed paths, and accepted contract dependencies.
+An agent declares what its implementation expects. A proposal never silently changes the
+accepted contract; a configured coordinator must accept or reject it. Acceptance publishes an
+immutable version, emits durable impact events, and invalidates affected evidence atomically.
+
+Agents poll events before editing a shared boundary, after substantial work, and before
+completion. **Acknowledging an event is not validation.** After an accepted change, inspect
+context, repair the code, refresh dependencies, and declare changed expectations. The CLI
+then runs the reviewed test command against current source. A newer failed or interrupted
+validation blocks an older success.
+
+For multiple tasks, prepare a **distinct linked integration worktree** containing the actual
+combined source. Register and validate its integration task, then check the multi-task gate.
+DecisionGuard does not merge branches. A receipt is valid for the checked point in time; it
+does not make a later Git merge atomic.
 
 ## CLI workflow
 
-Structured mutations take a JSON request file. Keep requests outside captured source or in
-the shared state directory. Every mutation requires actor and idempotency key. Identical retries
-return the recorded result; changed payloads using the same key fail.
+Structured mutations take a JSON request file. Store request files outside captured source
+or in the shared state directory. Every mutation needs an `actor` and `idempotency_key`:
+an identical retry returns its recorded result, while a changed payload using the same key
+fails. Run these examples from the DecisionGuard checkout with
+`uv run decisionguard --root D:/YourRepository <command> <request.json>`.
 
-Register an author task before proposing the first contract (`task request.json`):
+<details>
+<summary><strong>Example requests: task, proposal, review, assumption, validation</strong></summary>
+
+Register a task before proposing its first contract (`task task.json`):
 
 ```json
 {"actor":"backend","task_id":"backend","idempotency_key":"register-backend-1","worktree":"D:/YourRepository","paths":["src/checkout.py","tests/test_checkout.py"],"contracts":[]}
 ```
 
-Propose (`propose request.json`):
+Propose a versioned contract (`propose propose.json`):
 
 ```json
 {"actor":"backend","task_id":"backend","idempotency_key":"public-contract-1","contract":{"boundary":"checkout.public.request","key":"amount.unit"},"value":{"kind":"money_unit","value":"INR.major.decimal-string"},"expected_version":0,"scope":["src/checkout.py","tests/test_checkout.py"],"rationale":"Public clients send decimal major units"}
 ```
 
-Copy the returned proposal ID into a coordinator review (`review request.json`):
+Use the returned proposal ID for explicit coordinator review (`review review.json`):
 
 ```json
 {"actor":"coordinator","idempotency_key":"review-public-1","proposal_id":"REPLACE_WITH_RETURNED_ID","accept":true,"expected_version":0,"rationale":"Reviewed public boundary"}
 ```
 
-Declare the implementation assumption (`assume request.json`):
+Declare an implementation expectation (`assume assume.json`):
 
 ```json
 {"actor":"backend","task_id":"backend","idempotency_key":"assume-public-1","contract":{"boundary":"checkout.public.request","key":"amount.unit"},"expected":{"kind":"money_unit","value":"INR.major.decimal-string"},"observed_version":1,"evidence":["src/checkout.py"]}
 ```
 
-Later tasks can register with `contracts` containing accepted `{boundary,key}` identities.
-Poll with `events backend backend --after 0 --limit 100`, then use the returned delivery cursor.
-`ack` takes actor/key/task_id/event_id JSON. `refresh` takes actor/key/task_id JSON, updates observed
-versions, and retains expected values; changed expectations require another `assume` request.
-
-Run `validate request.json` with:
+Run the locally configured test runner (`validate validate.json`):
 
 ```json
 {"actor":"backend","task_id":"backend","idempotency_key":"validation-1"}
 ```
 
-Validation commands come only from reviewed local config. Optional `task_runners` maps task
-IDs to runner objects; `runner` is the default. Configuration changes require fresh validation
-and invalidate prior evidence. Authority changes apply to subsequent mutations without a
-server restart. Interrupted runs are unusable: inspect them and use a new key rather than
-expecting an identical retry to rerun a command.
+</details>
 
-Prepare combined source yourself in a separate linked worktree, register an integration task
-with `integration: true` and all selected dependencies, declare assumptions, and validate it:
+Poll with `events backend backend --after 0 --limit 100` and retain the returned cursor.
+`ack` records delivery; `refresh` updates observed versions but does not reconcile code or
+create validation evidence. Use a **new** idempotency key for a new validation attempt.
+Optional `task_runners` can select a runner per task; configuration changes require fresh
+validation.
+
+After validating each implementation task and the distinct integration task:
 
 ```powershell
 uv run decisionguard --root D:/YourRepository gate --task-id frontend --task-id backend --integration-task integration
 ```
 
-A single-task gate without integration checks task readiness only. Multiple tasks require an
-integration task. The gate compares selected implementation files against the combined snapshot.
-Changed-path coverage includes commits made since each task was registered.
-Exit codes: 0 passes the declared scope, 1 blocked/failed/stale/unknown, 2 operational/invocation
-error. Recheck after any changes; a receipt does not make a future merge atomic.
+A single-task gate checks that task's readiness only. Multiple tasks require an integration
+task and worktree. Gate exit code `0` means the declared scope passed, `1` means blocked or
+unknown, and `2` means an operational/input error. See [design.md](design.md) for protocol
+details and [CI_EXAMPLE.md](docs/CI_EXAMPLE.md) for reviewed metadata transfer and fresh CI
+evidence.
 
-Only the latest validation attempt can pass the gate. A later failure, error, timeout or
-unfinished attempt blocks earlier success. Changed files must fit approved task scope, and
-integration must use a distinct task and worktree. See [the audit](docs/SECURITY_AUDIT.md).
+### MCP tool map
 
-## Upgrading and scope approval
+| Need | Tools |
+|---|---|
+| Context and declarations | `get_context`, `register_task`, `declare_assumption` |
+| Review | `propose_decision`, coordinator-only `review_proposal` |
+| Durable change delivery | `poll_events`, `acknowledge_event`, `refresh_dependencies` |
+| Read-only inspection | `list_conflicts`, `explain_impact`, `check_gate` |
+| Optional previews/history | `preview_contracts`, `list_advisories` |
 
-Stop all running DecisionGuard CLI/MCP sessions before upgrading database v1 or v2:
+The MCP server has **no validation tool**. Only the trusted local CLI runs configured
+commands. The server uses the official Python MCP SDK over stdio and reserves stdout for
+protocol messages.
 
-```powershell
-uv run decisionguard --root D:/YourRepository migrate --sessions-stopped
-```
+## What the gate does and does not prove
 
-The migration keeps a SQLite backup, preserves history and invalidates old evidence. A v1
-migration also requires approval of existing scopes; v2 retains its approved scopes.
-Fresh CLI registrations are locally approved; MCP registrations
-need explicit coordinator approval. Supply this JSON to `approve-task-scope request.json`:
+The gate blocks on conflicts, relevant pending proposals, stale dependencies, missing or
+stale runner evidence, changed files outside approved scope, and unknown declared coverage.
+Evidence is bound to current source, configuration, and decision versions. Tracked and
+nonignored untracked files are captured; Gitignored untracked files and explicit exclusions
+are outside the default snapshot.
 
-```json
-{"actor":"coordinator","task_id":"backend","idempotency_key":"scope-backend-1","expected_scope_revision":0,"paths":["src/checkout.py","tests/test_checkout.py"]}
-```
+Coverage is declared rather than inferred from arbitrary code. A passing gate establishes
+only the configured checks and declared scope. It cannot establish whole-repository
+correctness, detect every hidden business assumption, force an agent to poll, or protect
+against a same-user process that can alter local configuration or state. For the reproduced
+threats and fixes, see the [security audit](docs/SECURITY_AUDIT.md).
 
-Approval changes require fresh validation. Broad contract proposals need approved broad scope;
-use an explicitly approved proposal task when the change spans multiple implementation tasks.
-Configuration supports optional resource `limits` described in [design.md](design.md).
-Path enumeration is bounded before hashing, including a 16 MiB default `snapshot_name_bytes`
-budget. Adding this limit changes the configuration digest: regenerate validation evidence
-after updating an existing installation. All v1/v2 installations must migrate to schema 3.
-`prune-receipts --days 30 --keep 1000` is explicit maintenance and preserves decision/run/retry
-history. Initialization retries recover its journaled identity; never delete a database to
-resolve a setup error without inspecting and backing up its contents.
+## Operations and further reading
 
-Other commands: `context`, `conflicts`, coordinator `mapping`, `export`, coordinator `import`.
-Each command has `--help`; [design.md](design.md) defines protocol and failure semantics.
+| Task | Command or guide |
+|---|---|
+| Inspect project health | `decisionguard --root <repo> doctor` |
+| Explain current impact | `decisionguard --root <repo> impact` |
+| Poll once from CLI | `decisionguard --root <repo> watch frontend frontend --once` |
+| Back up shared state | `decisionguard --root <repo> backup <new-backup.db>` |
+| Preview maintenance | `decisionguard --root <repo> maintain` (`--apply` changes state) |
+| Explore reviewed OpenAPI imports | [Full-stack checkout example](examples/fullstack-checkout/README.md) |
+| Evaluate incremental value | [Paired study](docs/PRODUCT_EVALUATION.md) and [strong baseline fixture](examples/strong-baseline/README.md) |
 
-## MCP, skill, and CI
+Existing schema 1/2 databases require all clients to stop before
+`decisionguard --root <repo> migrate --sessions-stopped`. Migration backs up state and
+invalidates previous validation; regenerate evidence afterward. Fresh CLI task registration
+approves its supplied scope locally. MCP-created scopes need explicit coordinator CLI
+`approve-task-scope` approval. See [MCP setup](docs/MCP_SETUP.md) and
+[alpha operations](docs/ALPHA_WORKFLOW.md) before migrating or restoring state.
 
-See [MCP setup](docs/MCP_SETUP.md) for fixed-actor configuration and the distributable Codex
-skill, and [CI example](docs/CI_EXAMPLE.md) for reviewed metadata transfer requiring fresh
-validation. The workflow skill follows [official discovery rules](https://learn.chatgpt.com/docs/build-skills).
+Optional Jev classification is advisory only. Install it with
+`uv sync --locked --extra jev --group dev`; only an explicit `advice classify` command sends
+a previewed, bounded payload using `DECISIONGUARD_JEV_API_KEY`. It never accepts a proposal
+or clears a gate. See [advisory evaluation](docs/ADVISORY_EVALUATION.md). A portal and
+automatic agent-to-agent delivery are not implemented.
 
-## Verification and limitations
+### Verify this checkout
 
 ```powershell
 uv run ruff format --check .
@@ -190,28 +278,12 @@ uv run mypy
 uv run pytest
 ```
 
-Tests include real multiprocess contention, worktrees with spaces, source/config/decision drift,
-restart/idempotency, actual combined-source checks, import freshness, and a real MCP client.
-See [memory.md](memory.md) for actual commands/results. Windows/Linux CI is configured;
-remote results require an actual CI run.
+The suite includes multiprocess writes, linked worktrees, source/configuration drift,
+retries, combined-source checks, and real MCP client transport. See [memory.md](memory.md)
+for recorded local results and limits. Configured CI is not evidence of a remote run until
+it actually executes against the reviewed revision.
 
-Coverage and assumptions are declared. Arbitrary code behavior and architectural prose are
-not inferred. Gitignored untracked files and reviewed exclusions are outside default snapshots.
-Pre/post digests cannot detect malicious edit-and-restore. Revision changes conservatively
-require fresh validation even for unrelated contracts. State trusts the same local user, who
-can edit config/database directly. Skills cannot guarantee polling compliance. Gates do not
-prove whole-repository correctness. The planted benchmark is diagnostic evidence.
-Optional AI extraction remains deferred.
-
-## License
-
-DecisionGuard is available under the [MIT License](LICENSE), with the notice
-`Copyright (c) 2026 Kaushik Mukherjee`. Dependency licenses remain their own;
-this project license does not replace their attribution or redistribution conditions.
-
-Read [PRD.md](PRD.md), [architecture.md](architecture.md), [design.md](design.md),
-[rules.md](rules.md), [tasks.md](tasks.md), and [memory.md](memory.md).
-
-Official references: [MCP SDK v1](https://github.com/modelcontextprotocol/python-sdk/tree/v1.x),
-[Pydantic models](https://docs.pydantic.dev/latest/concepts/models/),
-[Typer](https://typer.tiangolo.com/tutorial/), [uv locking](https://docs.astral.sh/uv/concepts/projects/sync/).
+DecisionGuard is [MIT licensed](LICENSE) (`Copyright (c) 2026 Kaushik Mukherjee`).
+Dependencies retain their own licenses. For product and implementation contracts, read
+[PRD.md](PRD.md), [architecture.md](architecture.md), [design.md](design.md),
+[rules.md](rules.md), and [tasks.md](tasks.md).

@@ -1,4 +1,4 @@
-# Engineering rules
+your work i# Engineering rules
 
 - Preserve unrelated work; develop sequentially unless parallel agents are explicitly authorized.
 - Keep domain independent from adapters/storage; share application services across CLI and MCP.

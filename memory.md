@@ -1,5 +1,20 @@
 # Project checkpoint
 
+## GitHub README presentation - 2026-10-29
+
+Reworked README into a scannable GitHub landing page: centered title and static status badges,
+short value example, quickstart, MCP setup, workflow diagram, compact CLI requests, tool map,
+and explicit gate limits. Preserved the local-alpha and fixture-versus-live evidence boundary.
+Documentation-only milestone; no runtime behavior or remote client was exercised.
+
+## README onboarding and MCP explanation - 2026-10-28
+
+Expanded README for GitHub readers with an alpha-status boundary, demo-to-project quickstart,
+fixed-actor MCP configuration and tool map, and the reviewed proposal/event/validation/
+integration sequence. Checked the descriptions against the current CLI and MCP adapters and
+`docs/MCP_SETUP.md`. Documentation only; no implementation or live-client verification was
+performed. Preserved the pre-existing user edit to `rules.md`.
+
 ## Git ignore cleanup
 
 Updated main and the automation implementation worktree ignore rules: local root `.codex/`
