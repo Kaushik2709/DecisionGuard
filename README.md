@@ -2,42 +2,127 @@
 
 # DecisionGuard
 
-### Keep coding agents aligned across Git worktrees.
+### Keep parallel coding agents aligned before you integrate their code.
 
-Declare shared contracts, review changes, and require fresh evidence from the code you intend to integrate.
+![DecisionGuard: parallel agents, shared decisions](docs/assets/decisionguard-banner.svg)
 
+![Status: local alpha](https://img.shields.io/badge/status-local%20alpha-D97706?style=flat-square)
 ![Python 3.11+](https://img.shields.io/badge/Python-3.11%2B-3776AB?style=flat-square&logo=python&logoColor=white)
 ![MCP stdio](https://img.shields.io/badge/MCP-stdio-6457A6?style=flat-square)
-![Local first](https://img.shields.io/badge/state-local%20SQLite-2E7D62?style=flat-square)
+![Local SQLite](https://img.shields.io/badge/state-local%20SQLite-2E7D62?style=flat-square)
 ![MIT license](https://img.shields.io/badge/license-MIT-555?style=flat-square)
 
-[Quickstart](#quickstart) · [Connect an agent](#2-connect-an-agent-over-mcp) · [How it works](#3-run-the-review-and-validation-loop) · [CLI reference](#cli-workflow) · [Limits](#what-the-gate-does-and-does-not-prove)
+[Why use it?](#why-decisionguard) &nbsp; / &nbsp; [How it works](#how-it-works) &nbsp; / &nbsp; [Try the demo](#quickstart) &nbsp; / &nbsp; [Connect your agents](#connect-your-agents) &nbsp; / &nbsp; [Limits](#what-the-gate-does-and-does-not-prove)
 
 </div>
 
----
+**DecisionGuard is a local Model Context Protocol (MCP) server and CLI for developers running
+2-4 coding agents in separate Git worktrees.** It gives those agents shared, versioned
+contracts, makes proposed changes visible to dependent tasks, and checks fresh validation
+evidence before integration.
 
-Two branches can merge cleanly and still disagree about a shared behavior. In DecisionGuard's
-checkout demo, one agent changes a public amount from decimal major units to integer paise
-while another still expects the old unit. The merge can succeed and the amount can be wrong
-by **100x**. DecisionGuard makes that declared disagreement visible before integration.
+The core needs **no LLM, API key, cloud account, or hosted service**.
 
 > [!NOTE]
-> **Status: local alpha (`0.1.0`).** The CLI and MCP stdio server are implemented and locally
-> tested. This is a trusted, same-user developer tool. It has no hosted service, mandatory
-> model, or API key. Production reliability and real-user benefit have not been established.
+> **Local alpha (`0.1.0`).** The CLI and MCP stdio server are implemented and locally tested.
+> Use them as a supervised, same-user developer tool. Broader real-user benefit and production
+> reliability remain unverified. See the [release checklist](docs/RELEASE_READINESS.md).
 
-## At a glance
+## Why DecisionGuard?
 
-| | DecisionGuard provides |
+**A clean Git merge can still combine incompatible assumptions.**
+
+Imagine one agent changing a checkout API while another builds its client. They edit different
+files. One changes the public amount from decimal rupees to integer paise; the other still
+sends rupees. Git can merge both branches without a conflict, yet the combined behavior is
+wrong by **100x**.
+
+DecisionGuard's [checkout demo](examples/checkout/README.md) reproduces this failure with real
+local worktrees and checks. It records the public amount unit as a contract, surfaces the
+proposed change to dependent tasks, and blocks the scoped gate until the disagreement is
+resolved and current code is validated.
+
+| When parallel work goes wrong | What DecisionGuard adds |
 |---|---|
-| **Shared decisions** | Immutable, versioned contracts and explicit coordinator review. |
-| **Agent context** | Fixed-actor MCP tools for context, proposals, impact events, and gate inspection. |
-| **Fresh evidence** | Locally configured test runners tied to task, source, configuration, and decision versions. |
-| **Combined check** | A scoped gate against a separate worktree containing the source you plan to merge. |
+| Agents implement different meanings for the same field. | Explicit contracts and implementation assumptions that can be compared. |
+| A shared decision changes while another task keeps working. | Pending-impact findings and durable events that dependent agents can poll. |
+| An agent says it has read or acknowledged the change. | Separate states for acknowledgement, refreshed dependencies, and validated implementation. |
+| Tests passed before a contract or source change. | Evidence bound to source, configuration, and decision versions; accepted changes invalidate affected evidence atomically. |
+| Each branch looks ready on its own. | A combined-source check in a distinct integration worktree before a multi-task gate can pass. |
 
-It complements schemas, code generation, contract tests, and integration tests. It checks
-**declared** expectations and configured validation; it does not infer arbitrary semantics.
+### When it earns a place in your workflow
+
+Use it when several coding agents work on **shared API boundaries, units, authentication
+expectations, error formats, or retry behavior**, and you want an explicit review and
+revalidation trail. Linked worktrees on one machine share the same local state.
+
+Keep your schemas, code generation, contract tests, and integration tests. Those tools check
+the behavior you encode; DecisionGuard tracks **which accepted decisions each task depends
+on and whether its evidence is still current**. If your existing checks already catch a
+mismatch, they deserve that credit. The [strong-baseline fixture](examples/strong-baseline/README.md)
+illustrates this boundary.
+
+## How it works
+
+An agent uses MCP to read context, declare expectations, propose changes, and inspect findings.
+A configured coordinator explicitly reviews proposals. The trusted local CLI runs the test
+commands you reviewed. Both interfaces use the same application services and shared database.
+
+The example below shows **four agents working together**, each with its own task, linked
+worktree, and fixed-actor MCP session. All four share the same reviewed contracts and change history.
+
+```mermaid
+flowchart TB
+    subgraph Agents[Parallel coding agents / separate linked worktrees]
+        A[Agent A<br/>Frontend and UI]
+        B[Agent B<br/>Backend and API]
+        D[Agent C<br/>Background jobs]
+        E[Agent D<br/>Tests and contracts]
+    end
+    A <--> M[DecisionGuard MCP server processes<br/>one fixed actor per session]
+    B <--> M
+    D <--> M
+    E <--> M
+    M <--> S[(Shared local SQLite<br/>versioned contracts and durable events)]
+    C[Coordinator] -->|Explicit accept or reject| S
+    V[Local CLI / reviewed test runners] -->|Source-bound validation evidence| S
+    I[Separate combined-source worktree] -->|Integration validation via CLI| V
+    S --> G{Scoped integration gate}
+    G -->|Current evidence and no findings| P[Point-in-time receipt]
+    G -->|Conflict, stale evidence, or unknowns| R[Explain findings / repair and revalidate]
+
+    classDef agent fill:#EFF6FF,stroke:#3B82F6,color:#172554
+    classDef shared fill:#CCFBF1,stroke:#0D9488,color:#134E4A
+    classDef review fill:#FEF3C7,stroke:#D97706,color:#78350F
+    classDef validation fill:#EDE9FE,stroke:#8B5CF6,color:#4C1D95
+    classDef pass fill:#DCFCE7,stroke:#16A34A,color:#14532D
+    classDef blocked fill:#FFE4E6,stroke:#E11D48,color:#881337
+    class A,B,D,E agent
+    class M,S shared
+    class C review
+    class V,I,G validation
+    class P pass
+    class R blocked
+```
+
+1. **Declare the shared boundary.** Register tasks, worktrees, approved file scope, and
+   contract dependencies. Each agent declares what its implementation expects at an accepted
+   version, such as `checkout.public.request / amount.unit = INR.major.decimal-string`.
+2. **Propose before changing the agreement.** A proposal leaves the accepted version intact
+   and exposes pending impact. A configured coordinator accepts or rejects it explicitly.
+   Published versions are immutable; acceptance emits events and invalidates affected evidence.
+3. **Revisit dependent code.** Agents poll before editing a shared boundary, after substantial
+   work, and before completion. They inspect the impact, repair code, refresh dependencies,
+   and update changed assumptions. **Acknowledgement alone cannot clear the gate.**
+4. **Validate the implementation.** The local CLI executes your configured runner against
+   current source. A newer failed or interrupted validation blocks an older success.
+5. **Check the actual combination.** Prepare a distinct linked integration worktree containing
+   the combined source. Validate its integration task, then gate it alongside the individual
+   tasks. DecisionGuard reports findings or records a scoped, point-in-time receipt.
+
+**You control review, test commands, and integration.** DecisionGuard does not merge branches,
+run commands supplied over MCP, or automatically discover every undeclared disagreement.
+A receipt does not make a later Git merge atomic.
 
 ## Quickstart
 
@@ -46,29 +131,48 @@ You need Git, [Python 3.11+](https://www.python.org/downloads/), and
 
 ```powershell
 uv sync --locked --group dev
+uv run decisionguard runtime
 uv run decisionguard demo
 ```
 
-The demo creates disposable, linked Git worktrees under `artifacts/`. It shows a pending
-impact, a blocked gate, a repaired implementation, and a fresh passing combined check.
-Agents are simulated; the validation and worktree operations are real local operations.
-No model is called. See the [demo walkthrough](examples/checkout/README.md).
+**Runtime preflight must pass before the demo or project initialization.** DecisionGuard
+requires SQLite with the upstream WAL-reset fix; Python's version alone is insufficient.
+If preflight fails, follow the [isolated runtime setup](docs/RUNTIME_SETUP.md), then rerun
+`runtime` and `demo` using that verified environment. The lockfile cannot update Python's
+bundled SQLite library.
 
-To try the deterministic case benchmark separately:
+The demo creates new disposable linked worktrees under `artifacts/` and walks through:
+
+| Stage | What you can observe |
+|---|---|
+| Propose a unit change | Dependent tasks show pending impact. |
+| Accept and combine incompatible edits | Git merges cleanly; the real combined check fails with `499 != 49900`. |
+| Acknowledge the event | The gate remains blocked. |
+| Repair, refresh, and revalidate | Fresh task and combined-source checks pass. |
+
+Agent and coordinator actions are deterministic simulations; worktrees, validation commands,
+and the reproduced failure are real local operations. No model is called. See the
+[demo walkthrough](examples/checkout/README.md) for details and the rejection/conversion path.
+
+<details>
+<summary><strong>Explore the planted compatibility benchmark</strong></summary>
 
 ```powershell
 uv run decisionguard benchmark
 ```
 
-This is a planted diagnostic fixture, not a live-agent effectiveness score. If Windows blocks
-the default uv cache, set `UV_CACHE_DIR` to a writable directory outside captured source.
+This measures labeled fixture classifications and lifecycle behavior. It is not a live-agent
+effectiveness or production reliability score. If Windows blocks the default uv cache, set
+`UV_CACHE_DIR` to a writable directory outside captured source.
 
-## Use it on your project
+</details>
 
-### 1. Initialize shared state
+## Connect your agents
+
+### 1. Initialize your repository with a reviewed runner
 
 Create a runner JSON file **outside your project's captured source**. Point it at the Python
-environment and tests for *your* repository (the Windows path below is an example):
+environment and tests for *your* repository (this Windows path is an example):
 
 ```json
 {
@@ -79,81 +183,65 @@ environment and tests for *your* repository (the Windows path below is an exampl
 }
 ```
 
-From the DecisionGuard checkout, initialize and diagnose the target repository:
+From the DecisionGuard checkout, using the environment that passed runtime preflight:
 
 ```powershell
 uv run decisionguard --root D:/YourRepository init coordinator D:/scratch/runner.json
 uv run decisionguard --root D:/YourRepository doctor
 ```
 
-The coordinator name is the local actor authorized to review proposals. The runner is a
-reviewed local command; MCP requests cannot replace it with a supplied command. State and
-configuration live at `<git-common-dir>/decisionguard/`, so linked worktrees share them.
-Independent clones do not. Keep the SQLite state on a local filesystem with WAL support and
-out of version control.
+`coordinator` names the local actor authorized to review proposals. State and configuration
+live at `<git-common-dir>/decisionguard/`, so linked worktrees share them. Independent clones
+do not. Keep this SQLite state on a local filesystem with WAL support and out of version control.
 
-For a preview-first setup that registers several tasks at once, see the
-[alpha onboarding guide](docs/ALPHA_WORKFLOW.md). It previews by default and applies only
-with `--apply`.
+For guided setup with several tasks, the [alpha onboarding guide](docs/ALPHA_WORKFLOW.md)
+provides a request format and a preview-first `setup project` command. Create the requested
+linked worktrees first; setup applies only with `--apply`.
 
-### 2. Connect an agent over MCP
+### 2. Give each coding session its own MCP identity
 
-Configure one fixed actor per coding session. Example Codex configuration on Windows:
+Example Codex configuration on Windows, using the isolated environment from the runtime guide:
 
 ```toml
 [mcp_servers.decisionguard]
-command = 'D:\DecisionGuard\.venv\Scripts\python.exe'
+command = 'D:\DecisionGuard\.cache\venv-patched\Scripts\python.exe'
 args = ['-m', 'decisionguard.adapters.mcp', '--root', 'D:\YourRepository-frontend', '--actor', 'frontend']
 ```
 
-Replace the absolute paths and actor. On Linux/macOS, use the installed environment's
-`bin/python`. The installed `decisionguard-mcp --root <worktree> --actor <name>` entry point
-is equivalent. Give each session its own configuration and linked worktree root. Reload the
-client and confirm its DecisionGuard tools appear.
+Replace the absolute executable, worktree path, and actor with your own. Configure the backend
+session separately with its `backend` actor and linked worktree root. Each server process has
+one fixed actor; use ordinary agent identities for coding sessions.
 
-You can generate a Codex configuration preview with:
+On Linux/macOS, use the verified environment's absolute `bin/python` path. Preserve any runtime
+launch environment required by the [runtime guide](docs/RUNTIME_SETUP.md). The installed
+`decisionguard-mcp --root <worktree> --actor <name>` entry point is equivalent.
+
+You can print a Codex configuration preview with:
 
 ```powershell
 uv run decisionguard --root D:/YourRepository setup codex frontend
 ```
 
-The preview does not edit global settings. MCP-created tasks require coordinator scope
-approval through the **local CLI** before they can propose or validate. The optional
-[workflow skill](skills/decisionguard-workflow/SKILL.md) describes polling checkpoints; it
-does not make an agent comply automatically. Full setup details are in
-[MCP_SETUP.md](docs/MCP_SETUP.md).
+Review the printed root for the intended session's worktree. This command does not edit global
+settings. Reload your client after applying its configuration and check that DecisionGuard's
+tools appear. Full instructions: [MCP setup](docs/MCP_SETUP.md).
 
-### 3. Run the review and validation loop
+### 3. Register scope and establish contracts
 
-```mermaid
-flowchart LR
-    A[Register task<br/>and assumptions] --> B[Propose shared<br/>contract change]
-    B --> C{Coordinator<br/>review}
-    C -->|Accepted| D[Poll impact<br/>and repair code]
-    C -->|Rejected| E[Keep accepted<br/>contract]
-    D --> F[CLI validates<br/>current source]
-    E --> F
-    F --> G[Validate separate<br/>combined worktree]
-    G --> H{Scoped gate}
-    H -->|Findings| D
-    H -->|Pass| I[Point-in-time<br/>receipt]
+Register each task and its dependencies, propose the starting contracts, review them, and
+declare implementation assumptions. The [CLI examples below](#cli-workflow) show the request
+formats. **MCP-created task scopes need coordinator approval through the local CLI** using
+`approve-task-scope` before proposals or validation can use them. Local CLI registration
+approves its supplied scope.
+
+The optional [workflow skill](skills/decisionguard-workflow/SKILL.md) gives agents the polling
+and review checkpoints. Instructions cannot force an independent agent to comply; event
+delivery requires polling. After the review/repair loop, validate each implementation and the
+separate integration task, then run the combined gate:
+
+```powershell
+uv run decisionguard --root D:/YourRepository gate --task-id frontend --task-id backend --integration-task integration
 ```
-
-Registration records the worktree, allowed changed paths, and accepted contract dependencies.
-An agent declares what its implementation expects. A proposal never silently changes the
-accepted contract; a configured coordinator must accept or reject it. Acceptance publishes an
-immutable version, emits durable impact events, and invalidates affected evidence atomically.
-
-Agents poll events before editing a shared boundary, after substantial work, and before
-completion. **Acknowledging an event is not validation.** After an accepted change, inspect
-context, repair the code, refresh dependencies, and declare changed expectations. The CLI
-then runs the reviewed test command against current source. A newer failed or interrupted
-validation blocks an older success.
-
-For multiple tasks, prepare a **distinct linked integration worktree** containing the actual
-combined source. Register and validate its integration task, then check the multi-task gate.
-DecisionGuard does not merge branches. A receipt is valid for the checked point in time; it
-does not make a later Git merge atomic.
 
 ## CLI workflow
 
@@ -204,12 +292,6 @@ create validation evidence. Use a **new** idempotency key for a new validation a
 Optional `task_runners` can select a runner per task; configuration changes require fresh
 validation.
 
-After validating each implementation task and the distinct integration task:
-
-```powershell
-uv run decisionguard --root D:/YourRepository gate --task-id frontend --task-id backend --integration-task integration
-```
-
 A single-task gate checks that task's readiness only. Multiple tasks require an integration
 task and worktree. Gate exit code `0` means the declared scope passed, `1` means blocked or
 unknown, and `2` means an operational/input error. See [design.md](design.md) for protocol
@@ -223,7 +305,7 @@ evidence.
 | Context and declarations | `get_context`, `register_task`, `declare_assumption` |
 | Review | `propose_decision`, coordinator-only `review_proposal` |
 | Durable change delivery | `poll_events`, `acknowledge_event`, `refresh_dependencies` |
-| Read-only inspection | `list_conflicts`, `explain_impact`, `check_gate` |
+| Findings and gate checks | `list_conflicts`, `explain_impact`, `check_gate` |
 | Optional previews/history | `preview_contracts`, `list_advisories` |
 
 The MCP server has **no validation tool**. Only the trusted local CLI runs configured

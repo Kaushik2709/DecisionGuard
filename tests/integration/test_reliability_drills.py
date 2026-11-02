@@ -29,7 +29,8 @@ def test_real_worktree_soak_reports_duration_history_and_limits(tmp_path):
     assert not result["production_reliability_established"]
     assert result["latencies"]["validation"]["p95_ms"] >= 0
     assert all(o["python_tracemalloc_peak_bytes"] > 0 for o in result["worker_results"])
-    assert result["process_rss_peak_bytes"] is None
+    assert result["process_rss_peak_bytes"] > 0
+    assert all(o["process_rss_peak_bytes"] > 0 for o in result["worker_results"])
     with pytest.raises(GuardError, match="new disposable"):
         soak(tmp_path / "soak", seconds=1)
 

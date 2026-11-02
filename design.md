@@ -45,6 +45,9 @@ timestamp. Poll returns at most 100 records after a cursor and records delivery.
 requires delivery and advances a durable cursor; it has no effect on evidence.
 Error codes include INVALID, NOT_FOUND, FORBIDDEN, VERSION_CONFLICT, IDEMPOTENCY_CONFLICT,
 BUSY, SOURCE_CHANGED, CONFIG_CHANGED, RESOURCE_LIMIT, and MIGRATION_REQUIRED.
+UNSUPPORTED_RUNTIME rejects SQLite versions without a recognized upstream WAL-reset
+fix before state access. `runtime` reports Python/SQLite safety without project state;
+`doctor` reports unsafe runtime status before attempting database diagnosis.
 CLI operational errors exit 2; blocked gates exit 1.
 
 ## Validation and gate

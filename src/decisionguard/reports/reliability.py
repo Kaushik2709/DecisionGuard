@@ -30,6 +30,7 @@ from decisionguard.domain.models import (
     Value,
 )
 from decisionguard.git.context import git
+from decisionguard.reports.process_memory import peak_rss_bytes
 from decisionguard.storage.sqlite import get, heads, put
 from decisionguard.validation.snapshot import stable_capture
 
@@ -353,6 +354,7 @@ def _soak_worker(directory: str, identity: str, seconds: float) -> dict[str, Any
     started = time.monotonic()
     samples: dict[str, list[float]] = {k: [] for k in ("validation", "gate", "snapshot")}
     counts = {"iterations": 0, "passed_gates": 0, "state_changed_gates": 0, "busy": 0, "errors": 0}
+    size_peaks = _sizes(service.directory)
     try:
         while time.monotonic() - started < seconds:
             request = TaskMutation(actor=identity, task_id=identity, idempotency_key=_key())
@@ -388,6 +390,8 @@ def _soak_worker(directory: str, identity: str, seconds: float) -> dict[str, Any
             except GuardError as exc:
                 counts["busy" if exc.code == "BUSY" else "errors"] += 1
             counts["iterations"] += 1
+            for name, size in _sizes(service.directory).items():
+                size_peaks[name] = max(size_peaks[name], size)
             if any(len(values) >= 100000 for values in samples.values()):
                 break
         _, peak = tracemalloc.get_traced_memory()
@@ -395,6 +399,8 @@ def _soak_worker(directory: str, identity: str, seconds: float) -> dict[str, Any
             **counts,
             "latencies": samples,
             "python_tracemalloc_peak_bytes": peak,
+            "process_rss_peak_bytes": peak_rss_bytes(),
+            "state_file_sampled_peak_bytes": size_peaks,
             "elapsed_seconds": time.monotonic() - started,
         }
     finally:
@@ -455,8 +461,16 @@ def soak(
             },
             state_bytes_before=before,
             state_bytes_after=after,
-            process_rss_peak_bytes=None,
-            memory_scope="Python tracemalloc per worker; native SQLite/OS allocations not measured",
+            state_file_sampled_peak_bytes={
+                name: max(o["state_file_sampled_peak_bytes"][name] for o in outcomes)
+                for name in before
+            },
+            process_rss_peak_bytes=(
+                max(o["process_rss_peak_bytes"] for o in outcomes)
+                if all(o["process_rss_peak_bytes"] is not None for o in outcomes)
+                else None
+            ),
+            memory_scope="Maximum lifetime peak RSS of one worker, including native allocations; excludes parent and runner children. Per-worker peaks are not simultaneous total memory.",
             quiescent_gates=quiescent,
             passed=all(
                 o["errors"] == 0 and o["passed_gates"] + o["state_changed_gates"] > 0
@@ -470,7 +484,10 @@ def soak(
 
 
 def _sizes(directory: Path) -> dict[str, int]:
-    return {
-        name: (directory / name).stat().st_size if (directory / name).exists() else 0
-        for name in ("state.db", "state.db-wal", "state.db-shm")
-    }
+    sizes = {}
+    for name in ("state.db", "state.db-wal", "state.db-shm"):
+        try:
+            sizes[name] = (directory / name).stat().st_size
+        except FileNotFoundError:
+            sizes[name] = 0
+    return sizes

@@ -1,5 +1,112 @@
 # Project checkpoint
 
+## Git publish scope review - 2026-11-02
+
+Reviewed all 31 modified/untracked candidates. Main HEAD acc99d7 matches the local
+origin/main reference (0 ahead/0 behind); no staged changes or outgoing commits at review.
+Remote was not fetched. Intentional runtime/release hardening, README/banner, tests, CI,
+lockfile, Graphify config/docs and canonical tasks/memory remain eligible to commit.
+No high-confidence credential-pattern matches in tracked or new candidate text files.
+Added /.aws/ and /.playwright-mcp/ to .gitignore. Verified credential/env, local agent,
+state/database, cache, build/dependency, disposable-artifact and Graphify-output exclusions;
+all candidates plus example/lockfile/workflow controls remain eligible, no tracked ignored files.
+
+Fresh verification with .cache/venv-patched: SQLite 3.54.1 runtime preflight; Ruff lint and
+format (107 files), mypy (42 source files), focused runtime/reliability/semantic/transport
+suite 25 passed, 1 skipped in 39.57s. This is not a new full-suite or remote CI result.
+Review and exact candidate list: artifacts/git-publish-review-20261102/. Only .gitignore
+and these required checkpoint records changed during cleanup. No staging, commit, push,
+local deletion or index removal. Next: review the candidate list before committing.
+
+## User-facing README refresh - 2026-11-02
+
+Follow-up: expanded the How it works diagram to four illustrative coding agents (frontend,
+backend, background jobs, tests/contracts), with a grouped agent row and distinct colors for
+shared state, review, validation and outcomes. Kept per-session identities and shared local
+state explicit. Documentation structure/links and whitespace checks passed; no runtime tests.
+
+Reworked README around why developers with parallel coding agents would use the MCP server:
+clean merges can conceal incompatible declared contracts; shared versions, explicit review,
+durable polled impacts and source-bound validation provide the review/revalidation loop.
+Added docs/assets/decisionguard-banner.svg, a two-agent Mermaid diagram, intended-user
+guidance, and a staged demo-to-project setup. Retained the existing runtime-preflight change
+and detailed CLI requests; MCP example now points at the isolated verified environment.
+Preserved local-alpha, declared-coverage, same-user and fixture-versus-live boundaries.
+
+Documentation checks: 32 local links/anchors, 14 balanced fenced blocks, six JSON examples
+validated against current Pydantic request models, parsed MCP TOML, all 13 exposed MCP tool
+names, and accessible SVG XML structure passed. Inspected banner/top-page browser rendering
+via a local MarkdownIt preview; this is not a GitHub Mermaid rendering or live-client test.
+Preview artifacts: artifacts/readme-refresh-20261102/. No application tests, state changes,
+client configuration changes, commits or publishing were performed for this milestone.
+Unrelated in-progress runtime/release work remains in place. Next: owner reviews the README.
+
+## Runtime and release fixes - 2026-10-30
+
+Implemented certifi minimum 2026.10.18 and lock 2026.10.23; fresh online audit passes
+48 dependencies. New state-free runtime/doctor preflight and storage/init/migration/
+restore guards refuse recognized unsafe SQLite versions. Prepared workspace-local
+Python 3.12.13 with upstream SHA3-verified SQLite 3.54.1 via scripts/prepare_sqlite.py;
+base runtime/provenance under .cache/python and .cache/sqlite. Patched project env:
+.cache/venv-patched. Original .venv/global Python/live clients were not replaced.
+Stop/switch old client sessions using docs/RUNTIME_SETUP.md before using shared state.
+
+CI has a separate blocking audit job, non-cancelling platform matrix, patched-runtime
+preparation, runtime preflight and isolated installed-wheel checks. Actionlint passes;
+modified workflow has not run remotely. Added native worker peak RSS and sampled
+state-file peaks to soak reports, managed running/final report recorder and a stronger
+configured-check regression preserving the documented undeclared-semantics limit.
+
+Fresh full source tests: 176 passed, 2 skipped in 327.28s on Windows 3.12.13/SQLite
+3.54.1; strong Node baseline executed. Focused: 22 passed, 1 skipped. Installed-wheel
+transport/operations/concurrency outside checkout: 12 passed. Ruff lint/format (107
+files), strict mypy (42 source modules), build/distribution and runtime byte checks pass.
+Artifacts: hardening-full-20261030.xml, hardening-final-wheel-20261030/,
+hardening-release-distribution-20261030.json, hardening-dependencies-20261030.json.
+Brief fixes/problems summary: artifacts/hardening-20261030/summary.md.
+
+Managed eight-hour run launched on new disposable artifacts/soak-hardening-8h-20261030;
+status/results: artifacts/soak-hardening-8h-20261030.json, actual Python PID 30524,
+launcher PID 22440. It was running at checkpoint, not complete; stdout/stderr logs
+have the same prefix. Native-memory/report smoke completed/passed separately.
+Graphify refreshed: 760 nodes/2,929 edges/33 communities. Current release gates are
+docs/RELEASE_READINESS.md; old readiness section in tasks.md marked historical.
+Automation remains separate; remote CI, full soak result, real host/pilot expansion,
+verified private reporting and license review remain uncompleted external gates.
+
+## Production-readiness review - 2026-10-30
+
+Used current graphify-out first; all 91 indexed file hashes match main acc99d7.
+Fresh Windows/Python 3.12.8 suite: 166 passed, 2 skipped, 286.06 seconds; strong
+baseline ran. Ruff src/tests and strict mypy passed. Review recommends supervised
+local alpha use, not stable production. No application/lockfile/state fixes applied.
+Online uv audit --frozen fails: certifi 2026.7.22 has the emSign issue reported as
+GHSA-6q48-6c7w-9gw2/PYSEC-2026-4320; upstream fixed version is 2026.10.18.
+Exact-HEAD remote CI run 41077229856 actually ran and failed at that audit; later
+tests/builds were skipped. This supersedes older notes saying remote CI was unrun.
+Local sqlite3.sqlite_version is 3.45.3, within SQLite's documented rare WAL-reset
+bug range; use a verified patched runtime before production (3.51.3+ or documented
+backports), then reverify concurrency/recovery. No corruption was reproduced.
+Full-duration soak/native RSS and broader real-agent pilots remain open. Existing
+automation 0.2.0a1/schema 4 remains in its separate worktree, not main 0.1.0/schema 3.
+Review/next fixes: artifacts/readiness-20261030/report.md; CI step evidence beside it;
+fresh JUnit: artifacts/readiness-20261030.xml. Existing Graphify changes preserved.
+
+## Graphify project knowledge - 2026-10-30
+
+Generated graphify-out using installed Graphify 0.9.65: code-only extraction with
+one worker, then cluster-only --no-label. No API key/model calls. Final map has
+715 nodes, 2,942 edges (372 inferred) and 26 communities, from 91 indexed files.
+Added .graphifyignore and ignored generated output in Git. All 78 project Python
+files are in the manifest; graph IDs, endpoints, paths and exclusions passed checks.
+Qualified Service explain and gate query worked. Browser over temporary loopback
+HTTP verified canvas rendering, search, Service inspection and filtering 715 -> 0 -> 715;
+only optional favicon returned 404. Retained verification.json, screenshot and browser
+logs in graphify-out. See docs/GRAPHIFY.md for commands, scope and viewer CDN dependency.
+Use these artifacts first for project navigation; verify inferred edges against source.
+Canonical prose docs are outside code-only extraction. Application source, shared
+state and global Graphify skill installations were untouched; no runtime suite ran.
+
 ## GitHub README presentation - 2026-10-29
 
 Reworked README into a scannable GitHub landing page: centered title and static status badges,

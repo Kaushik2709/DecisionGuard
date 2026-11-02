@@ -1,6 +1,7 @@
 # MCP and Codex setup
 
-Install DecisionGuard first (`uv sync --locked --group dev`) and initialize the target repository
+Install DecisionGuard with a [verified SQLite runtime](RUNTIME_SETUP.md), run
+`decisionguard runtime`, and initialize the target repository
 using the CLI. Each server process uses one fixed `--actor`; register tasks using that same actor.
 Use an ordinary agent identity for coding sessions. Coordinator identity is configured locally
 at initialization; supplying a request role or spoofing another actor cannot grant capability.
@@ -20,11 +21,12 @@ Example Codex configuration (replace absolute paths for your machine):
 
 ```toml
 [mcp_servers.decisionguard]
-command = 'D:\DecisionGuard\.venv\Scripts\python.exe'
+command = 'D:\DecisionGuard\.cache\venv-patched\Scripts\python.exe'
 args = ['-m', 'decisionguard.adapters.mcp', '--root', 'D:\YourRepository', '--actor', 'frontend']
 ```
 
 Linux uses the environment's absolute `bin/python` path. Configure separate sessions with
+the reviewed `LD_LIBRARY_PATH` from runtime setup when using the private Linux library and
 their respective actor and repository/worktree root. Linked worktrees resolve the same state.
 Do not point different actors at a single server whose bound actor differs.
 

@@ -18,6 +18,9 @@ Use `<absolute git common dir>/decisionguard/state.db` and adjacent `config.json
 Linked worktrees share state; independent clones do not. Non-Git projects require explicit
 project root and state directory. State must be on a local filesystem supporting SQLite WAL.
 SQLite enables foreign keys, WAL, bounded busy handling, and immediate write transactions.
+Storage requires an upstream WAL-reset-fixed SQLite runtime before opening state;
+state-free runtime diagnostics and private runtime preparation are documented in
+docs/RUNTIME_SETUP.md. The Python version alone is not a SQLite safety check.
 Every mutation has project/actor/task scope and an idempotency key; review also checks
 the exact predecessor. Publish, revision increment, invalidation, events, and retry result
 commit together. Published versions are never edited. Active heads are separate records.

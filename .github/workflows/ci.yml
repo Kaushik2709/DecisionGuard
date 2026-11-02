@@ -3,25 +3,45 @@ on: [push, pull_request]
 permissions:
   contents: read
 jobs:
+  audit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff
+      - run: uv audit --frozen
   verify:
     strategy:
+      fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
         python: ['3.11', '3.12']
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
+    env:
+      UV_CACHE_DIR: ${{ github.workspace }}/.cache/uv
+      UV_PYTHON_INSTALL_DIR: ${{ github.workspace }}/.cache/python
+      LD_LIBRARY_PATH: ${{ github.workspace }}/.cache/sqlite/lib
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4, verified 2026-10-15
       - uses: astral-sh/setup-uv@d0d8abe699bfb85fec6de9f7adb5ae17292296ff # v6, verified 2026-10-15
+      - uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1 # v6, verified 2026-10-30
+        if: runner.os == 'Linux'
         with:
           python-version: ${{ matrix.python }}
+      - run: uv python install ${{ matrix.python }} --no-bin --no-registry
+        if: runner.os == 'Windows'
       - uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6, verified 2026-10-19
         with:
           node-version: '24'
-      - run: uv sync --locked --group dev
+      - run: uv sync --locked --group dev --python ${{ matrix.python }} --managed-python
+        if: runner.os == 'Windows'
+      - run: uv sync --locked --group dev --python "${{ env.pythonLocation }}/bin/python" --no-managed-python
+        if: runner.os == 'Linux'
+      - run: uv run python scripts/prepare_sqlite.py
+      - run: uv run decisionguard runtime
       - run: npm ci --ignore-scripts --no-fund
         working-directory: examples/strong-baseline
-      - run: uv audit --frozen
       - run: uv run ruff format --check .
       - run: uv run ruff check .
       - run: uv run mypy
@@ -32,6 +52,7 @@ jobs:
       - run: uv run decisionguard benchmark
       - run: uv build
       - run: uv run python scripts/verify_distribution.py dist/decisionguard-0.1.0-py3-none-any.whl --output artifacts/distribution-check.json
+      - run: uv run python scripts/verify_installed.py dist/decisionguard-0.1.0-py3-none-any.whl --output-dir artifacts/installed-wheel
       - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4, verified 2026-10-20
         if: always()
         with:
@@ -39,6 +60,9 @@ jobs:
           path: |
             artifacts/ci-tests.xml
             artifacts/distribution-check.json
+            artifacts/installed-wheel/installed-wheel.xml
+            artifacts/installed-wheel/installed-wheel.json
+            .cache/sqlite/runtime-provenance.json
             dist/*
           retention-days: 7
           if-no-files-found: warn

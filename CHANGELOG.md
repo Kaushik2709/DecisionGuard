@@ -1,5 +1,15 @@
 # Changelog
 
+## Unreleased runtime and release hardening - 2026-10-30
+
+- Update and constrain certifi to exclude the affected emSign trust bundle.
+- Refuse unsafe SQLite runtimes, add state-free runtime diagnostics and hash-verified
+  workspace-local runtime preparation. No live database migration is required.
+- Separate audit from the CI test matrix, add runtime and installed-wheel checks,
+  and retain runtime provenance. Remote verification is still required after review.
+- Add native worker RSS and sampled state-file peaks to reliability reports, a managed
+  soak recorder, a strong-check regression and a consolidated current release checklist.
+
 ## Unreleased alpha workflow - 2026-10-20
 
 - Add reviewed/resumable project setup, current-source next actions and task-runner diagnosis.

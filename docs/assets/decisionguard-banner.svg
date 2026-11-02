@@ -1,0 +1,47 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="360" viewBox="0 0 1200 360" fill="none" role="img" aria-labelledby="title desc">
+  <title id="title">DecisionGuard: parallel agents, shared decisions</title>
+  <desc id="desc">Two coding agents in separate worktrees connect to DecisionGuard for shared contracts, explicit review, and fresh validation evidence.</desc>
+  <defs>
+    <linearGradient id="background" x1="0" y1="0" x2="1200" y2="360" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#0B1224"/>
+      <stop offset="1" stop-color="#172A40"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="710" y1="220" x2="1110" y2="315" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#153E45"/>
+      <stop offset="1" stop-color="#18384A"/>
+    </linearGradient>
+  </defs>
+  <rect width="1200" height="360" rx="24" fill="url(#background)"/>
+  <path d="M625 0V360M0 328H1200" stroke="#28405A" stroke-opacity=".45"/>
+  <circle cx="1150" cy="25" r="115" stroke="#28405A" stroke-opacity=".5"/>
+  <circle cx="1150" cy="25" r="160" stroke="#28405A" stroke-opacity=".3"/>
+  <g font-family="Segoe UI, Helvetica, Arial, sans-serif">
+    <rect x="44" y="32" width="183" height="28" rx="14" fill="#1D3448"/>
+    <circle cx="62" cy="46" r="4" fill="#5EEAD4"/>
+    <text x="75" y="51" fill="#C4DDD9" font-size="12" font-weight="700" letter-spacing="1.4">LOCAL-FIRST MCP</text>
+    <text x="44" y="126" fill="#F1F5F9" font-size="49" font-weight="700" letter-spacing="-1.5">Parallel agents.</text>
+    <text x="44" y="185" fill="#5EEAD4" font-size="49" font-weight="700" letter-spacing="-1.5">Shared decisions.</text>
+    <text x="46" y="228" fill="#BCCBDD" font-size="19">Catch declared contract disagreements</text>
+    <text x="46" y="256" fill="#BCCBDD" font-size="19">before they reach integration.</text>
+    <text x="46" y="304" fill="#E2E8F0" font-size="14" font-weight="600" letter-spacing="1.2">DECLARE</text>
+    <text x="139" y="304" fill="#5EEAD4" font-size="16">/</text>
+    <text x="161" y="304" fill="#E2E8F0" font-size="14" font-weight="600" letter-spacing="1.2">REVIEW</text>
+    <text x="245" y="304" fill="#5EEAD4" font-size="16">/</text>
+    <text x="267" y="304" fill="#E2E8F0" font-size="14" font-weight="600" letter-spacing="1.2">REVALIDATE</text>
+    <rect x="670" y="51" width="216" height="94" rx="14" fill="#152337" stroke="#3E5876"/>
+    <rect x="920" y="51" width="216" height="94" rx="14" fill="#152337" stroke="#3E5876"/>
+    <text x="690" y="82" fill="#F1F5F9" font-size="18" font-weight="600">Agent A</text>
+    <text x="690" y="112" fill="#9FB5CD" font-size="14">Frontend worktree</text>
+    <text x="940" y="82" fill="#F1F5F9" font-size="18" font-weight="600">Agent B</text>
+    <text x="940" y="112" fill="#9FB5CD" font-size="14">Backend worktree</text>
+    <path d="M778 145V178H903V217M1028 145V178H903" stroke="#5EEAD4" stroke-width="2"/>
+    <circle cx="903" cy="178" r="5" fill="#5EEAD4"/>
+    <text x="903" y="202" fill="#9FB5CD" font-size="12" text-anchor="middle">MCP / shared local state</text>
+    <rect x="710" y="218" width="386" height="91" rx="14" fill="url(#accent)" stroke="#4CB7A8"/>
+    <path d="M735 243L746 238L757 243V255C757 265 746 270 746 270C746 270 735 265 735 255V243Z" stroke="#5EEAD4" stroke-width="2"/>
+    <path d="M740 254L744 258L752 249" stroke="#5EEAD4" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>
+    <text x="772" y="255" fill="#F1F5F9" font-size="23" font-weight="700">DecisionGuard</text>
+    <text x="735" y="287" fill="#B5D7D2" font-size="14">Shared contracts. Explicit review. Fresh evidence.</text>
+    <text x="44" y="349" fill="#8CA4BD" font-size="11" letter-spacing="1.3">GIT WORKTREES + VERSIONED CONTRACTS + SOURCE-BOUND VALIDATION</text>
+  </g>
+</svg>

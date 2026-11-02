@@ -24,6 +24,7 @@ from decisionguard.domain.models import (
     TaskMutation,
     TaskRequest,
 )
+from decisionguard.storage.runtime import runtime_status
 
 app = typer.Typer(no_args_is_help=True, help="Local decision consistency for Git worktrees.")
 contracts_app = typer.Typer(help="Preview and propose reviewed local OpenAPI contracts.")
@@ -75,9 +76,22 @@ def status(ctx: typer.Context) -> None:
 
 
 @app.command()
+def runtime() -> None:
+    """Check Python/SQLite safety without opening project state."""
+    result = runtime_status()
+    emit(envelope(ok=result["sqlite_wal_reset_fixed"], runtime=result))
+    if not result["sqlite_wal_reset_fixed"]:
+        raise typer.Exit(1)
+
+
+@app.command()
 def doctor(ctx: typer.Context) -> None:
     from decisionguard.application.operations import doctor as diagnose
 
+    status = runtime_status()
+    if not status["sqlite_wal_reset_fixed"]:
+        emit(envelope(ok=False, runtime=status))
+        raise typer.Exit(1)
     local = service(ctx)
     try:
         result = diagnose(local)

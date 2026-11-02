@@ -15,6 +15,8 @@ def inspect(wheel: Path) -> dict:
         "decisionguard/resources/decisionguard-workflow/SKILL.md",
         "decisionguard/application/onboarding.py",
         "decisionguard/reports/reliability.py",
+        "decisionguard/reports/process_memory.py",
+        "decisionguard/storage/runtime.py",
         "decisionguard/application/product_evaluation.py",
     }
     with zipfile.ZipFile(wheel) as archive:

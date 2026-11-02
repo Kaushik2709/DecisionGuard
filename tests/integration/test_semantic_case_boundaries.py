@@ -133,3 +133,23 @@ def test_undeclared_unit_bug_can_escape_a_weak_configured_check(project, tmp_pat
         ),
         encoding="utf-8",
     )
+
+
+def test_strong_behavioral_check_blocks_the_same_undeclared_unit_bug(project):
+    service, root = project
+    (root / "code.py").write_text("amount = '49900'\n", encoding="utf-8")
+    assert run(service)["run"]["passed"]  # Existing nonempty-only assertion.
+    assert gate(service, ["worker"])["receipt"]["passed"]
+    (root / "check.py").write_text(
+        "from decimal import Decimal\nfrom code import amount\n"
+        "provider_amount = int(Decimal(amount) * 100)\n"
+        "assert provider_amount == 49900\n",
+        encoding="utf-8",
+    )
+    assert not gate(service, ["worker"])["receipt"]["passed"]
+    broken = run(service)["run"]
+    assert broken["valid"] and not broken["passed"]
+    assert not gate(service, ["worker"])["receipt"]["passed"]
+    (root / "code.py").write_text("amount = '499.00'\n", encoding="utf-8")
+    assert run(service)["run"]["passed"]
+    assert gate(service, ["worker"])["receipt"]["passed"]

@@ -15,6 +15,7 @@ from decisionguard.application.services import Service, envelope, now
 from decisionguard.domain.errors import require
 from decisionguard.domain.models import TaskMutation
 from decisionguard.storage.locking import exclusive_lock
+from decisionguard.storage.runtime import require_safe_runtime, runtime_status
 from decisionguard.storage.sqlite import dumps, get, put
 
 
@@ -88,6 +89,7 @@ def backup(service: Service, destination: Path) -> dict[str, Any]:
 
 
 def restore_backup(directory: Path, source: Path, *, sessions_stopped: bool) -> dict[str, Any]:
+    require_safe_runtime()
     require(sessions_stopped, "INVALID", "Stop all sessions and pass --sessions-stopped")
     config = load_config(directory)
     source = source.resolve()
@@ -169,6 +171,7 @@ def maintain(service: Service, *, apply: bool = False, days: int = 30) -> dict[s
 
 
 def doctor(service: Service) -> dict[str, Any]:
+    runtime = runtime_status()
     with service.store.connect() as db:
         integrity = db.execute("PRAGMA quick_check").fetchone()[0]
         version = db.execute("PRAGMA user_version").fetchone()[0]
@@ -195,7 +198,8 @@ def doctor(service: Service) -> dict[str, Any]:
         available[label] = available[label] and cwd.is_dir() and cwd.is_relative_to(root.resolve())
     found = all(available.values())
     return envelope(
-        ok=integrity == "ok" and found,
+        ok=integrity == "ok" and found and runtime["sqlite_wal_reset_fixed"],
+        runtime=runtime,
         database_version=version,
         database_integrity=integrity,
         runner_available=found,

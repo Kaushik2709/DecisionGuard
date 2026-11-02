@@ -10,6 +10,7 @@ from decisionguard.domain.models import Config, RunnerConfig
 from decisionguard.git.context import common_dir, repository_root
 from decisionguard.storage.locking import exclusive_lock
 from decisionguard.storage.migrations import EPOCH_TRIGGERS, V3
+from decisionguard.storage.runtime import require_safe_runtime
 from decisionguard.storage.sqlite import Store
 
 
@@ -28,6 +29,7 @@ def state_dir(root: Path, explicit: Path | None = None) -> Path:
 
 
 def initialize(root: Path, state: Path | None, coordinator: str, runner: RunnerConfig) -> Path:
+    require_safe_runtime()
     root = root.resolve()
     require(root.is_dir(), "INVALID", "Project root does not exist")
     common = common_dir(root)
@@ -77,6 +79,7 @@ def atomic_json(path: Path, content: str) -> None:
 
 
 def migrate(directory: Path, *, sessions_stopped: bool) -> dict[str, str | int]:
+    require_safe_runtime()
     require(sessions_stopped, "INVALID", "Stop all CLI/MCP sessions and pass --sessions-stopped")
     config = load_config(directory)
     with exclusive_lock(directory / "admin.lock"), exclusive_lock(directory / "activity.lock"):

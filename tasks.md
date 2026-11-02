@@ -1,5 +1,50 @@
 # Implementation tasks
 
+## Git publish scope review - 2026-11-02
+
+- [x] Review branch/upstream, index, all 31 working-tree candidates and credential patterns;
+  retain intentional source/tests/CI/lockfiles/docs/assets and project checkpoints.
+- [x] Ignore root-local AWS credentials and Playwright output; verify existing state/cache/
+  generated exclusions, eligible controls and absence of tracked ignored files.
+- [x] Verify lint, format, types and focused runtime/reliability/semantic/MCP checks:
+  25 passed, 1 skipped. Review record: artifacts/git-publish-review-20261102/review.md.
+  No staging, commits, push, deletion, index removal or remote refresh performed.
+
+## User-facing README refresh - 2026-11-02
+
+- [x] Lead with the parallel-agent contract problem, concrete checkout failure, intended
+  users, and how shared decisions complement existing behavioral checks.
+- [x] Add an accessible SVG banner and four-agent workflow diagram; retain reviewed MCP/CLI
+  setup, runtime preflight, request examples, and explicit local-alpha/coverage boundaries.
+- [x] Verify local links/anchors, JSON request models, MCP TOML/tool names, and banner
+  structure; inspect a locally rendered browser preview. Documentation only, no runtime suite.
+
+## Runtime and release hardening - 2026-10-30
+
+- [x] Patch/constrain certifi, add SQLite runtime refusal and diagnostics, and prepare
+  a hash-verified isolated Windows runtime without changing active databases/global Python.
+- [x] Separate CI audit from platform tests, require runtime preflight and isolated
+  installed-wheel checks, and preserve provenance/JUnit artifacts.
+- [x] Add native worker memory and sampled state-file peaks, a managed soak recorder,
+  and a behavioral regression contrasting weak and strong configured checks.
+- [x] Complete final local source/wheel verification: 176 passed, 2 skipped on
+  Windows/Python 3.12.13/SQLite 3.54.1; 12 installed-wheel checks passed outside
+  the checkout. Lint/format/types, actionlint, build/distribution and online audit pass.
+- [ ] Complete eight-hour reliability and broader real-agent/host trials.
+  Eight-hour two-worker run started with source fingerprints; actual running/final
+  status: artifacts/soak-hardening-8h-20261030.json. Short smoke passed; no completion claim.
+- [ ] Verify the reviewed release revision remotely; private reporting/license review
+  and publication remain owner-controlled gates. Current checklist: docs/RELEASE_READINESS.md.
+
+## Graphify project knowledge - 2026-10-30
+
+- [x] Generate local code-only Graphify artifacts with one extraction worker and
+  numbered communities; exclude local state, credentials, caches and disposable worktrees.
+- [x] Verify graph integrity, all project Python files in the manifest, CLI queries,
+  browser search, node inspection and community filtering. Results and refresh commands:
+  docs/GRAPHIFY.md; generated evidence: graphify-out/verification.json and viewer-verified.png.
+  Navigation assistance only; inferred edges require source verification.
+
 ## Same-repository Codex MCP test preparation - 2026-10-27
 
 - [x] Initialize this repository's shared state and prepare snapshot-based linked coding/
@@ -220,7 +265,11 @@ artifacts/phase-next-frozen-linux311.xml, artifacts/phase-next-frozen-linux312.x
 artifacts/phase-next-installed-frozen.xml. Builds are in artifacts/next-phase-dist; dependency
 inventory is artifacts/next-phase-dependency-inventory.json. No tag or package was published.
 
-## Production-readiness and objective review — 2026-10-16
+## Historical production-readiness and objective review — 2026-10-16
+
+This is the pre-follow-up snapshot. Some unchecked items below were subsequently
+implemented (notices, benchmark paths, process cleanup, output retention and wheel
+verification). Use docs/RELEASE_READINESS.md for the current release gates.
 
 Assessment compares live source with the original attached brief and the approved deterministic
 M0–M5 scope. The core is implemented; production reliability and interactive agent effectiveness

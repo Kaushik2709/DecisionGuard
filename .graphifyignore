@@ -1,0 +1,24 @@
+# Local state, credentials, dependencies, caches, and disposable worktrees.
+.git/
+.aws/
+.codex/
+.agents/
+.env
+.env.*
+.venv/
+.cache/
+.cache-clean/
+__pycache__/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+node_modules/
+*.egg-info/
+*.db
+*.db-shm
+*.db-wal
+.decisionguard/
+artifacts/
+dist/
+build/
+graphify-out/

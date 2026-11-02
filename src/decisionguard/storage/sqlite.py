@@ -7,6 +7,7 @@ from typing import Any
 
 from decisionguard.domain.errors import GuardError, require
 from decisionguard.storage.migrations import EPOCH_TRIGGERS, SCHEMA, V3
+from decisionguard.storage.runtime import require_safe_runtime
 
 
 def dumps(value: Any) -> str:
@@ -15,6 +16,7 @@ def dumps(value: Any) -> str:
 
 class Store:
     def __init__(self, path: Path, project: str, *, create: bool = False):
+        require_safe_runtime()
         self.path = path
         self.project = project
         require(create or path.is_file(), "NOT_FOUND", "Initialize DecisionGuard first")

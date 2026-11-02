@@ -13,6 +13,9 @@ or exploitable production details in a public issue. No email address or monitor
 
 ## Trust boundaries
 
+- Use a verified WAL-reset-fixed SQLite runtime. `decisionguard runtime` reports the
+  actual version without opening state, and affected versions are refused. Follow
+  docs/RUNTIME_SETUP.md; stop legacy clients before changing their runtime.
 - Same-user trusted local repositories, configuration and SQLite state. Shell access can bypass
   MCP actor restrictions; this project is not an agent sandbox or multi-tenant authorization layer.
 - Only reviewed local runner argv executes. MCP does not accept commands or invoke runners.
@@ -24,5 +27,6 @@ or exploitable production details in a public issue. No email address or monitor
   best effort. Keep DECISIONGUARD_JEV_API_KEY outside JSON, source, history and diagnostic output.
 - Passing tests prove only the configured checks against the recorded source/decision state.
 
-See docs/SECURITY_AUDIT.md for historical reproductions and remediations, and tasks.md for
-remaining recovery, soak, independent evaluation and release gates.
+Windows/Linux x64 with Python 3.11/3.12 and patched SQLite are the intended verification
+matrix; a stable supported-version promise remains pending. See docs/RELEASE_READINESS.md
+for current gates and docs/SECURITY_AUDIT.md for historical reproductions/remediations.

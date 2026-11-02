@@ -21,3 +21,10 @@ node_modules/
 /.codex/
 /.agents/
 
+# Local credentials and browser automation output
+/.aws/
+/.playwright-mcp/
+
+# Generated local project knowledge
+/graphify-out/
+
