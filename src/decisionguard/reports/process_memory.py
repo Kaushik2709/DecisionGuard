@@ -2,6 +2,7 @@
 
 import os
 import sys
+from typing import Any, cast
 
 
 def peak_rss_bytes() -> int | None:
@@ -24,7 +25,7 @@ def peak_rss_bytes() -> int | None:
                     ("PeakPagefileUsage", ctypes.c_size_t),
                 ]
 
-            kernel = ctypes.WinDLL("kernel32", use_last_error=True)
+            kernel = cast(Any, ctypes).WinDLL("kernel32", use_last_error=True)
             kernel.GetCurrentProcess.restype = wintypes.HANDLE
             query = kernel.K32GetProcessMemoryInfo
             query.argtypes = [wintypes.HANDLE, ctypes.POINTER(Counters), wintypes.DWORD]

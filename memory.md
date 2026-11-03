@@ -1,5 +1,13 @@
 # Project checkpoint
 
+## GitHub Actions mypy repair - 2026-11-03
+
+Run 41453600234 failed only on Ubuntu 3.11/3.12 because strict mypy rejected
+`ctypes.WinDLL` in `reports/process_memory.py`; Windows jobs passed. Reused the
+existing `cast(Any, ctypes).WinDLL` pattern from the Windows adapter. Local Ruff
+format/lint, strict mypy, and process-ownership tests passed. A full-suite attempt
+was blocked by missing prepared SQLite runtime/network DNS; remote rerun remains pending.
+
 ## Git publish scope review - 2026-11-02
 
 Reviewed all 31 modified/untracked candidates. Main HEAD acc99d7 matches the local
